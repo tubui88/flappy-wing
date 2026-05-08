@@ -269,8 +269,64 @@ let lastRockTime = 0;
 let frameCount = 0;
 let startTime = 0;
 let lastTime = 0;
-let nextForceScore = 20 + Math.floor(Math.random() * 11);
+let spawnedRocksCount = 0;
+let superGearSchedule = [];
+let lasers = []; // For bombardment visuals
 let currentUser = JSON.parse(localStorage.getItem('xwingUser')) || null;
+
+function pickGearType(scoreTier) {
+  const r = Math.random() * 100;
+  if (scoreTier <= 20) {
+    if (r < 35) return 'shield';
+    if (r < 70) return 'speed';
+    if (r < 80) return 'brake';
+    if (r < 90) return 'bombardment';
+    return 'transform';
+  } else if (scoreTier <= 40) {
+    if (r < 30) return 'shield';
+    if (r < 60) return 'speed';
+    if (r < 90) return 'brake';
+    return 'bombardment';
+  } else if (scoreTier === 50) {
+    return 'transform';
+  } else if (scoreTier <= 70) {
+    if (r < 30) return 'shield';
+    if (r < 40) return 'speed';
+    if (r < 80) return 'brake';
+    if (r < 90) return 'bombardment';
+    return 'transform';
+  } else if (scoreTier <= 100) {
+    if (r < 20) return 'shield';
+    if (r < 30) return 'speed';
+    if (r < 50) return 'brake';
+    if (r < 80) return 'bombardment';
+    return 'transform';
+  } else {
+    if (r < 20) return 'shield';
+    if (r < 40) return 'speed';
+    if (r < 60) return 'brake';
+    if (r < 80) return 'bombardment';
+    return 'transform';
+  }
+}
+
+function generateGearSchedule() {
+  superGearSchedule = [];
+  const getRand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+  
+  superGearSchedule.push({ score: getRand(1, 20), type: pickGearType(1) });
+  superGearSchedule.push({ score: getRand(21, 30), type: pickGearType(21) });
+  superGearSchedule.push({ score: getRand(31, 40), type: pickGearType(21) });
+  superGearSchedule.push({ score: 50, type: pickGearType(50) });
+  superGearSchedule.push({ score: getRand(61, 70), type: pickGearType(61) });
+  superGearSchedule.push({ score: getRand(71, 85), type: pickGearType(71) });
+  superGearSchedule.push({ score: getRand(86, 100), type: pickGearType(71) });
+  
+  for (let block = 101; block < 2000; block += 20) {
+    superGearSchedule.push({ score: getRand(block, block + 9), type: pickGearType(101) });
+    superGearSchedule.push({ score: getRand(block + 10, block + 19), type: pickGearType(101) });
+  }
+}
 
 function getDifficultyScale() {
   const levels = Math.floor(score / 10);
@@ -369,8 +425,7 @@ function createXWing() {
     rotation: 0,
     width: 38,
     height: 24,
-    invulnerable: false,
-    invulnerableTimer: 0
+    activePower: null
   };
 }
 
@@ -416,8 +471,9 @@ function init() {
   score = 0;
   frameCount = 0;
   lastRockTime = 0;
-  forcePowerUp = null;
-  nextForceScore = 20 + Math.floor(Math.random() * 11);
+  spawnedRocksCount = 0;
+  lasers = [];
+  generateGearSchedule();
 
   if (!currentUser) {
     gameState = 'login';
@@ -579,37 +635,53 @@ function drawRock(rock) {
     ctx.fillStyle = 'rgba(255, 60, 30, 0.15)';
     ctx.fillRect(x - 4, topBottom - 4, w + 8, CONFIG.rockGap + 8);
   }
+
+  // Draw Super Gear if attached
+  if (rock.gearType && !rock.gearCollected) {
+    drawSuperGear(rock.x + CONFIG.rockWidth / 2, rock.topHeight + CONFIG.rockGap / 2, rock.gearType);
+  }
 }
 
-function drawForce() {
-  if (!forcePowerUp) return;
-  const { x, y, size } = forcePowerUp;
-  
-  // Outer glow
+function drawSuperGear(x, y, type) {
+  let colors = {
+    'shield': 'cyan',
+    'speed': 'lime',
+    'brake': 'orange',
+    'bombardment': 'red',
+    'transform': 'yellow'
+  };
+  let color = colors[type];
+  const size = 15;
+
   const grad = ctx.createRadialGradient(x, y, 0, x, y, size * 2.5);
-  grad.addColorStop(0, 'rgba(0, 255, 255, 0.8)');
-  grad.addColorStop(0.5, 'rgba(0, 150, 255, 0.3)');
+  grad.addColorStop(0, color);
   grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
   
   ctx.fillStyle = grad;
+  ctx.globalAlpha = 0.6;
   ctx.beginPath();
   ctx.arc(x, y, size * 2.5, 0, Math.PI * 2);
   ctx.fill();
+  ctx.globalAlpha = 1.0;
 
-  // Core
   ctx.fillStyle = '#fff';
   ctx.beginPath();
-  ctx.arc(x, y, size, 0, Math.PI * 2);
+  ctx.arc(x, y, size * 0.8, 0, Math.PI * 2);
   ctx.fill();
 
-  // Pulse effect
-  ctx.strokeStyle = 'cyan';
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.arc(x, y, size * (1 + Math.sin(frameCount * 0.2) * 0.3), 0, Math.PI * 2);
   ctx.stroke();
-}
 
+  // Draw initial for gear
+  ctx.fillStyle = '#000';
+  ctx.font = 'bold 14px Outfit';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(type.charAt(0).toUpperCase(), x, y + 1);
+}
 
 function drawXWing() {
   ctx.save();
@@ -620,23 +692,50 @@ function drawXWing() {
   xwing.rotation += (targetRotation - xwing.rotation) * 0.15;
   ctx.rotate(xwing.rotation);
 
+  if (xwing.activePower && xwing.activePower.type === 'transform') {
+    // Banana!
+    ctx.fillStyle = '#FFE135';
+    ctx.beginPath();
+    ctx.moveTo(20, -5);
+    ctx.quadraticCurveTo(0, 15, -20, -5);
+    ctx.quadraticCurveTo(0, 5, 20, -5);
+    ctx.fill();
+    ctx.strokeStyle = '#D4AF37';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // Banana stem
+    ctx.fillStyle = '#556B2F';
+    ctx.fillRect(18, -7, 4, 4);
+    ctx.restore();
+    return;
+  }
+
   // Wing tilt animation
   const wingTilt = Math.sin(frameCount * 0.12) * 0.06 + (xwing.velocity * 0.025);
 
-  // Invulnerability Glow
-  if (xwing.invulnerable) {
-    ctx.shadowBlur = 20;
-    ctx.shadowColor = 'cyan';
-    ctx.beginPath();
-    ctx.strokeStyle = 'rgba(0, 255, 255, 0.5)';
-    ctx.lineWidth = 4;
-    ctx.arc(0, 0, 25, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.shadowBlur = 0;
+  // Power Glows
+  if (xwing.activePower) {
+    let glowColor = 'white';
+    if (xwing.activePower.type === 'shield') glowColor = 'cyan';
+    if (xwing.activePower.type === 'speed') glowColor = 'lime';
+    if (xwing.activePower.type === 'brake') glowColor = 'orange';
+
+    if (xwing.activePower.type !== 'bombardment') {
+      ctx.shadowBlur = 20;
+      ctx.shadowColor = glowColor;
+      ctx.beginPath();
+      ctx.strokeStyle = glowColor;
+      ctx.globalAlpha = 0.5;
+      ctx.lineWidth = 4;
+      ctx.arc(0, 0, 25, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 1.0;
+      ctx.shadowBlur = 0;
+    }
   }
 
   // Engine thrust particles
-  if (xwing.velocity < -2) {
+  if (xwing.velocity < -2 || (xwing.activePower && xwing.activePower.type === 'speed')) {
     for(let i=0; i<3; i++) {
       particles.push(createParticle(xwing.x - 18, xwing.y + (Math.random()-0.5)*6, 'thrust'));
     }
@@ -734,6 +833,19 @@ function drawParticles() {
   ctx.globalAlpha = 1;
 }
 
+function drawLasers() {
+  ctx.strokeStyle = 'red';
+  ctx.lineWidth = 4;
+  lasers.forEach(l => {
+    ctx.beginPath();
+    ctx.moveTo(l.x, 0);
+    ctx.lineTo(l.x, CONFIG.height);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
+    ctx.fillRect(l.x - 20, 0, 40, CONFIG.height);
+  });
+}
+
 function drawScore() {
   if (gameState === 'playing' || gameState === 'gameover') {
     ctx.fillStyle = 'rgba(0,0,0,0.4)';
@@ -801,10 +913,10 @@ function updateXWing(delta) {
   xwing.velocity += CONFIG.gravity * delta;
   xwing.y += xwing.velocity * delta;
 
-  if (xwing.invulnerable) {
-    xwing.invulnerableTimer -= delta;
-    if (xwing.invulnerableTimer <= 0) {
-      xwing.invulnerable = false;
+  if (xwing.activePower) {
+    xwing.activePower.timer -= delta;
+    if (xwing.activePower.timer <= 0) {
+      xwing.activePower = null;
     }
   }
 
@@ -820,8 +932,30 @@ function updateXWing(delta) {
 }
 
 function updateRocks(delta) {
-  const currentSpeed = getRockSpeed();
-  const currentInterval = getRockInterval();
+  let speedMult = 1;
+  if (xwing.activePower && xwing.activePower.type === 'speed') speedMult = 2;
+  if (xwing.activePower && xwing.activePower.type === 'brake') speedMult = 0.5;
+
+  const currentSpeed = getRockSpeed() * speedMult;
+  const currentInterval = getRockInterval() / speedMult;
+
+  // Handle bombardment
+  if (xwing.activePower && xwing.activePower.type === 'bombardment') {
+    for (let i = rocks.length - 1; i >= 0; i--) {
+      let r = rocks[i];
+      if (r.x < CONFIG.width) {
+        // Destroy rock
+        for (let p = 0; p < 15; p++) particles.push(createParticle(r.x + 30, r.topHeight, 'thrust'));
+        for (let p = 0; p < 15; p++) particles.push(createParticle(r.x + 30, r.topHeight + CONFIG.rockGap, 'thrust'));
+        lasers.push({ x: r.x + 30, life: 10 });
+        rocks.splice(i, 1);
+      }
+    }
+  }
+
+  // Update lasers
+  lasers.forEach(l => l.life -= delta);
+  lasers = lasers.filter(l => l.life > 0);
 
   rocks.forEach(rock => {
     rock.x -= currentSpeed * delta;
@@ -833,47 +967,31 @@ function updateRocks(delta) {
 
     if (!rock.scored && rock.x + CONFIG.rockWidth < xwing.x) {
       rock.scored = true;
-      score++;
-
-      // Trigger Force spawn check
-      if (score === nextForceScore) {
-        forcePowerUp = {
-          x: CONFIG.width + 100,
-          y: 150 + Math.random() * (CONFIG.height - CONFIG.groundHeight - 300),
-          size: 15
-        };
-        nextForceScore += 20 + Math.floor(Math.random() * 11);
-      }
+      let earned = 1;
+      if (xwing.activePower && (xwing.activePower.type === 'shield' || xwing.activePower.type === 'speed')) earned = 2;
+      if (xwing.activePower && xwing.activePower.type === 'transform') earned = 3;
+      score += earned;
 
       for (let i = 0; i < 8; i++) {
         particles.push(createParticle(xwing.x, xwing.y - 30));
       }
     }
+
+    // Check Gear Pickup
+    if (rock.gearType && !rock.gearCollected) {
+      const gx = rock.x + CONFIG.rockWidth / 2;
+      const gy = rock.topHeight + CONFIG.rockGap / 2;
+      const dx = xwing.x - gx;
+      const dy = xwing.y - gy;
+      if (Math.sqrt(dx*dx + dy*dy) < 35) {
+        rock.gearCollected = true;
+        xwing.activePower = { type: rock.gearType, timer: 300 }; // 5s @ 60fps
+        for(let i=0; i<20; i++) particles.push(createParticle(xwing.x, xwing.y, 'score'));
+      }
+    }
   });
 
   rocks = rocks.filter(r => r.x + CONFIG.rockWidth > -10);
-
-  // Update Force element
-  if (forcePowerUp) {
-    forcePowerUp.x -= currentSpeed * delta;
-    if (forcePowerUp.x < -50) forcePowerUp = null;
-    
-    // Collision check with Force
-    if (forcePowerUp) {
-      const dx = xwing.x - forcePowerUp.x;
-      const dy = xwing.y - forcePowerUp.y;
-      const dist = Math.sqrt(dx*dx + dy*dy);
-      if (dist < 40) {
-        xwing.invulnerable = true;
-        xwing.invulnerableTimer = 300; // 5 seconds @ 60fps base
-        forcePowerUp = null;
-        // Burst effect
-        for(let i=0; i<20; i++) {
-          particles.push(createParticle(xwing.x, xwing.y, 'score'));
-        }
-      }
-    }
-  }
 
   const now = Date.now();
   if (now - lastRockTime > currentInterval) {
@@ -881,10 +999,15 @@ function updateRocks(delta) {
     const maxTop = CONFIG.height - CONFIG.groundHeight - CONFIG.rockGap - 60;
     const topHeight = minTop + Math.random() * (maxTop - minTop);
 
+    spawnedRocksCount++;
+    const scheduleItem = superGearSchedule.find(s => s.score === spawnedRocksCount);
+
     rocks.push({
       x: CONFIG.width + 10,
       topHeight: topHeight,
-      scored: false
+      scored: false,
+      gearType: scheduleItem ? scheduleItem.type : null,
+      gearCollected: false
     });
     lastRockTime = now;
   }
@@ -939,7 +1062,7 @@ async function gameOver() {
 }
 
 function checkRockCollision() {
-  if (xwing.invulnerable) return false;
+  if (xwing.activePower && (xwing.activePower.type === 'shield' || xwing.activePower.type === 'bombardment' || xwing.activePower.type === 'transform')) return false;
 
   const bx = xwing.x - xwing.width / 2 + 4;
   const by = xwing.y - xwing.height / 2 + 3;
@@ -976,7 +1099,11 @@ function gameLoop(timestamp) {
     updateRocks(delta);
     updateParticles();
 
-    groundX = (groundX - getRockSpeed() * delta) % CONFIG.width;
+    let speedMult = 1;
+    if (xwing.activePower && xwing.activePower.type === 'speed') speedMult = 2;
+    if (xwing.activePower && xwing.activePower.type === 'brake') speedMult = 0.5;
+
+    groundX = (groundX - getRockSpeed() * speedMult * delta) % CONFIG.width;
 
     if (checkRockCollision()) {
       gameOver();
@@ -995,7 +1122,7 @@ function gameLoop(timestamp) {
   }
 
   rocks.forEach(drawRock);
-  drawForce();
+  drawLasers();
   drawGround();
   drawParticles();
 
