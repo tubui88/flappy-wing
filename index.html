@@ -304,31 +304,18 @@ async function registerUser() {
   loadingSpinner.style.display = 'block';
   
   try {
-    // Check if user exists
-    let { data: user, error } = await _supabase
-      .from('flappy_users')
+    // Call RPC to register or get user
+    const { data, error } = await _supabase.rpc('flappy_register_user', {
+      p_username: username,
+      p_email: email,
+      p_linkedin_url: linkedin
+    });
 
-      .select('*')
-      .eq('email', email)
-      .single();
+    if (error) throw error;
+    if (!data.success) throw new Error(data.error);
 
-    if (error && error.code !== 'PGRST116') throw error;
-
-    if (!user) {
-      // Create user
-      const { data: newUser, error: insertError } = await _supabase
-        .from('flappy_users')
-
-        .insert([{ username, email, linkedin_url: linkedin }])
-        .select()
-        .single();
-      
-      if (insertError) throw insertError;
-      user = newUser;
-    }
-
-    currentUser = user;
-    localStorage.setItem('xwingUser', JSON.stringify(user));
+    currentUser = { id: data.id, username, email, linkedin_url: linkedin };
+    localStorage.setItem('xwingUser', JSON.stringify(currentUser));
     loginPanel.style.display = 'none';
     gameState = 'ready';
   } catch (err) {
@@ -343,10 +330,12 @@ async function saveScore() {
   if (!currentUser) return;
   
   try {
-    await _supabase
-      .from('flappy_leaderboard')
-
-      .insert([{ user_id: currentUser.id, score: score }]);
+    const { data, error } = await _supabase.rpc('flappy_submit_score', {
+      p_user_id: currentUser.id,
+      p_score: score
+    });
+    if (error) throw error;
+    if (!data.success) console.warn('Score submission failed:', data.error);
   } catch (err) {
     console.error('Failed to save score:', err);
   }
@@ -354,21 +343,15 @@ async function saveScore() {
 
 async function fetchLeaderboard() {
   try {
-    const { data, error } = await _supabase
-      .from('flappy_leaderboard')
-      .select('score, flappy_users(username)')
-
-      .order('score', { ascending: false })
-      .limit(10);
+    const { data, error } = await _supabase.rpc('flappy_get_leaderboard');
 
     if (error) throw error;
 
     leaderboardList.innerHTML = data.map((entry, i) => `
       <li class="leaderboard-item">
         <span class="rank">#${i + 1}</span>
-        <span class="name">${entry.flappy_users.username}</span>
-
-        <span class="l-score">${entry.score}</span>
+        <span class="name">${entry.data.username}</span>
+        <span class="l-score">${entry.data.score}</span>
       </li>
     `).join('');
   } catch (err) {
@@ -378,19 +361,15 @@ async function fetchLeaderboard() {
 
 async function fetchAdminData() {
   try {
-    const { data, error } = await _supabase
-      .from('flappy_users')
-
-      .select('*')
-      .order('created_at', { ascending: false });
+    const { data, error } = await _supabase.rpc('flappy_get_users');
 
     if (error) throw error;
 
-    adminTableBody.innerHTML = data.map(user => `
+    adminTableBody.innerHTML = data.map(entry => `
       <tr>
-        <td>${user.username}</td>
-        <td>${user.email}</td>
-        <td>${user.linkedin_url ? `<a href="${user.linkedin_url}" target="_blank" class="linkedin-link">View</a>` : 'N/A'}</td>
+        <td>${entry.data.username}</td>
+        <td>${entry.data.email}</td>
+        <td>${entry.data.linkedin_url ? `<a href="${entry.data.linkedin_url}" target="_blank" class="linkedin-link">View</a>` : 'N/A'}</td>
       </tr>
     `).join('');
   } catch (err) {
