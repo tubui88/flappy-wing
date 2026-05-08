@@ -216,28 +216,8 @@
         <!-- Dynamic content -->
       </ul>
       <button id="btn-restart">RE-ENGAGE</button>
-      <button id="btn-admin-toggle" class="btn-secondary">VIEW DATABASE</button>
     </div>
 
-    <!-- Admin Panel -->
-    <div id="admin-panel" class="glass-panel">
-      <h2>PILOT DATABASE</h2>
-      <div style="max-height: 300px; overflow-y: auto;">
-        <table class="admin-table">
-          <thead>
-            <tr>
-              <th>Pilot</th>
-              <th>Email</th>
-              <th>LinkedIn</th>
-            </tr>
-          </thead>
-          <tbody id="admin-table-body">
-            <!-- Dynamic content -->
-          </tbody>
-        </table>
-      </div>
-      <button id="btn-admin-back" class="btn-secondary">BACK TO SQUADRON</button>
-    </div>
   </div>
 
   <canvas id="game"></canvas>
@@ -259,7 +239,6 @@ const loginPanel = document.getElementById('login-panel');
 const leaderboardPanel = document.getElementById('leaderboard-panel');
 const adminPanel = document.getElementById('admin-panel');
 const leaderboardList = document.getElementById('leaderboard-list');
-const adminTableBody = document.getElementById('admin-table-body');
 const loadingSpinner = document.getElementById('loading-spinner');
 
 // --- Configuration ---
@@ -288,6 +267,7 @@ let xwing, rocks, particles, stars;
 let groundX = 0;
 let lastRockTime = 0;
 let frameCount = 0;
+let startTime = 0;
 let currentUser = JSON.parse(localStorage.getItem('xwingUser')) || null;
 
 // --- Supabase Functions ---
@@ -329,10 +309,13 @@ async function registerUser() {
 async function saveScore() {
   if (!currentUser) return;
   
+  const playTimeSeconds = Math.floor((Date.now() - startTime) / 1000);
+
   try {
     const { data, error } = await _supabase.rpc('flappy_submit_score', {
       p_user_id: currentUser.id,
-      p_score: score
+      p_score: score,
+      p_duration_seconds: playTimeSeconds
     });
     if (error) throw error;
     if (!data.success) console.warn('Score submission failed:', data.error);
@@ -350,7 +333,9 @@ async function fetchLeaderboard() {
     leaderboardList.innerHTML = data.map((entry, i) => `
       <li class="leaderboard-item">
         <span class="rank">#${i + 1}</span>
-        <span class="name">${entry.data.username}</span>
+        <span class="name">
+          ${entry.data.linkedin_url ? `<a href="${entry.data.linkedin_url}" target="_blank" style="color: inherit; text-decoration: none; border-bottom: 1px dashed rgba(255,255,255,0.3);">${entry.data.username}</a>` : entry.data.username}
+        </span>
         <span class="l-score">${entry.data.score}</span>
       </li>
     `).join('');
@@ -359,23 +344,6 @@ async function fetchLeaderboard() {
   }
 }
 
-async function fetchAdminData() {
-  try {
-    const { data, error } = await _supabase.rpc('flappy_get_users');
-
-    if (error) throw error;
-
-    adminTableBody.innerHTML = data.map(entry => `
-      <tr>
-        <td>${entry.data.username}</td>
-        <td>${entry.data.email}</td>
-        <td>${entry.data.linkedin_url ? `<a href="${entry.data.linkedin_url}" target="_blank" class="linkedin-link">View</a>` : 'N/A'}</td>
-      </tr>
-    `).join('');
-  } catch (err) {
-    console.error('Failed to fetch admin data:', err);
-  }
-}
 
 // --- X-Wing Fighter ---
 function createXWing() {
@@ -831,6 +799,7 @@ function flap() {
     gameState = 'playing';
     xwing.velocity = CONFIG.flapStrength;
     lastRockTime = Date.now();
+    startTime = Date.now();
     return;
   }
 
@@ -956,15 +925,9 @@ document.getElementById('btn-restart').addEventListener('click', () => {
   init();
 });
 
-document.getElementById('btn-admin-toggle').addEventListener('click', async () => {
+document.getElementById('btn-restart').addEventListener('click', () => {
   leaderboardPanel.style.display = 'none';
-  adminPanel.style.display = 'flex';
-  await fetchAdminData();
-});
-
-document.getElementById('btn-admin-back').addEventListener('click', () => {
-  adminPanel.style.display = 'none';
-  leaderboardPanel.style.display = 'flex';
+  init();
 });
 
 // --- Input Handling ---
