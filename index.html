@@ -439,6 +439,14 @@ function createParticle(x, y, type = 'score') {
       color: `hsl(${Math.random()*30}, 90%, ${50+Math.random()*40}%)`
     };
   }
+  if (type === 'rock') {
+    return {
+      x, y,
+      vx: (Math.random() - 0.5) * 8, vy: (Math.random() - 0.5) * 8,
+      life: 1, decay: 0.02, size: 4 + Math.random() * 6,
+      color: `hsl(0, 100%, ${20 + Math.random() * 20}%)`
+    };
+  }
   return {
     x, y,
     vx: (Math.random() - 0.5) * 5, vy: (Math.random() - 0.5) * 5,
@@ -536,6 +544,8 @@ function drawGround() {
 }
 
 function drawRock(rock) {
+  if (rock.destroyed) return; // Do not draw destroyed rocks
+
   const x = rock.x;
   const topBottom = rock.topHeight;
   const bottomTop = topBottom + CONFIG.rockGap;
@@ -834,15 +844,17 @@ function drawParticles() {
 }
 
 function drawLasers() {
-  ctx.strokeStyle = 'red';
-  ctx.lineWidth = 4;
   lasers.forEach(l => {
+    const alpha = l.life / 20;
+    ctx.strokeStyle = `rgba(255, 0, 0, ${alpha})`;
+    ctx.lineWidth = 10;
     ctx.beginPath();
     ctx.moveTo(l.x, 0);
     ctx.lineTo(l.x, CONFIG.height);
     ctx.stroke();
-    ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
-    ctx.fillRect(l.x - 20, 0, 40, CONFIG.height);
+    
+    ctx.fillStyle = `rgba(255, 100, 100, ${alpha * 0.8})`;
+    ctx.fillRect(l.x - 15, 0, 30, CONFIG.height);
   });
 }
 
@@ -941,16 +953,16 @@ function updateRocks(delta) {
 
   // Handle bombardment
   if (xwing.activePower && xwing.activePower.type === 'bombardment') {
-    for (let i = rocks.length - 1; i >= 0; i--) {
-      let r = rocks[i];
-      if (r.x < CONFIG.width) {
-        // Destroy rock
-        for (let p = 0; p < 15; p++) particles.push(createParticle(r.x + 30, r.topHeight, 'thrust'));
-        for (let p = 0; p < 15; p++) particles.push(createParticle(r.x + 30, r.topHeight + CONFIG.rockGap, 'thrust'));
-        lasers.push({ x: r.x + 30, life: 10 });
-        rocks.splice(i, 1);
+    rocks.forEach(r => {
+      // Target rocks when they appear on screen, slightly ahead of the ship
+      if (!r.destroyed && r.x < xwing.x + 150) {
+        r.destroyed = true;
+        // Destroy rock visually
+        for (let p = 0; p < 20; p++) particles.push(createParticle(r.x + 30, r.topHeight, 'rock'));
+        for (let p = 0; p < 20; p++) particles.push(createParticle(r.x + 30, r.topHeight + CONFIG.rockGap, 'rock'));
+        lasers.push({ x: r.x + 30, life: 20 });
       }
-    }
+    });
   }
 
   // Update lasers
@@ -965,7 +977,7 @@ function updateRocks(delta) {
       rock.topHeight += Math.sin(frameCount * 0.05 + rock.x * 0.01) * 1.5 * delta;
     }
 
-    if (!rock.scored && rock.x + CONFIG.rockWidth < xwing.x) {
+    if (!rock.scored && !rock.destroyed && rock.x + CONFIG.rockWidth < xwing.x) {
       rock.scored = true;
       let earned = 1;
       if (xwing.activePower && xwing.activePower.type === 'transform') earned = 3;
