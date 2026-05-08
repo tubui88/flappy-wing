@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>X-Wing Flight</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Outfit:wght@400;700&display=swap" rel="stylesheet">
+
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background: #05050a;
+    font-family: 'Outfit', 'Inter', sans-serif;
+    overflow: hidden;
+    color: #fff;
+  }
+  canvas {
+    border-radius: 12px;
+    box-shadow: 0 0 80px rgba(255, 60, 60, 0.2);
+    cursor: pointer;
+    max-height: 90vh;
+    background: #000;
+  }
+
+  /* Premium UI Overlays */
+  #overlay-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  .glass-panel {
+    background: rgba(20, 20, 30, 0.85);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 30px;
+    width: 340px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    pointer-events: all;
+    display: none;
+    flex-direction: column;
+    gap: 20px;
+    animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  h2 {
+    font-size: 24px;
+    font-weight: 700;
+    text-align: center;
+    background: linear-gradient(135deg, #fff 0%, #ff4d4d 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 10px;
+  }
+
+  .input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: rgba(255, 255, 255, 0.6);
+  }
+
+  input {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 12px;
+    color: #fff;
+    font-family: inherit;
+    transition: all 0.2s;
+  }
+
+  input:focus {
+    outline: none;
+    border-color: #ff4d4d;
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 0 15px rgba(255, 77, 77, 0.2);
+  }
+
+  button {
+    background: linear-gradient(135deg, #ff4d4d 0%, #ff0000 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 15px rgba(255, 77, 77, 0.3);
+  }
+
+  button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(255, 77, 77, 0.5);
+  }
+
+  button:active {
+    transform: translateY(0);
+  }
+
+  /* Leaderboard Styling */
+  .leaderboard-list {
+    list-style: none;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .leaderboard-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .leaderboard-item:last-child {
+    border-bottom: none;
+  }
+
+  .rank { color: #ff4d4d; font-weight: bold; margin-right: 10px; }
+  .name { flex-grow: 1; color: #eee; }
+  .l-score { font-weight: bold; color: #ffd700; }
+
+  /* Admin View */
+  #admin-panel {
+    width: 600px;
+  }
+
+  .admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  .admin-table th {
+    text-align: left;
+    padding: 10px;
+    color: #ff4d4d;
+    border-bottom: 2px solid rgba(255, 77, 77, 0.3);
+  }
+
+  .admin-table td {
+    padding: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .linkedin-link {
+    color: #0077b5;
+    text-decoration: none;
+  }
+
+  .btn-secondary {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    margin-top: 10px;
+  }
+
+  #loading-spinner {
+    display: none;
+    text-align: center;
+    color: #ff4d4d;
+    font-size: 12px;
+  }
+
+</style>
+</head>
+<body>
+  <div id="overlay-container">
+    <!-- Login Panel -->
+    <div id="login-panel" class="glass-panel">
+      <h2>PILOT REGISTRATION</h2>
+      <div class="input-group">
+        <label>Callsign (Username)</label>
+        <input type="text" id="username" placeholder="Red Five" required>
+      </div>
+      <div class="input-group">
+        <label>Email</label>
+        <input type="email" id="email" placeholder="luke@rebelalliance.org" required>
+      </div>
+      <div class="input-group">
+        <label>LinkedIn URL</label>
+        <input type="url" id="linkedin" placeholder="https://linkedin.com/in/luke">
+      </div>
+      <button id="btn-register">JOIN THE SQUADRON</button>
+      <div id="loading-spinner">Connecting to Rebel Base...</div>
+    </div>
+
+    <!-- Leaderboard Panel -->
+    <div id="leaderboard-panel" class="glass-panel">
+      <h2>GALACTIC RANKINGS</h2>
+      <ul id="leaderboard-list" class="leaderboard-list">
+        <!-- Dynamic content -->
+      </ul>
+      <button id="btn-restart">RE-ENGAGE</button>
+      <button id="btn-admin-toggle" class="btn-secondary">VIEW DATABASE</button>
+    </div>
+
+    <!-- Admin Panel -->
+    <div id="admin-panel" class="glass-panel">
+      <h2>PILOT DATABASE</h2>
+      <div style="max-height: 300px; overflow-y: auto;">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Pilot</th>
+              <th>Email</th>
+              <th>LinkedIn</th>
+            </tr>
+          </thead>
+          <tbody id="admin-table-body">
+            <!-- Dynamic content -->
+          </tbody>
+        </table>
+      </div>
+      <button id="btn-admin-back" class="btn-secondary">BACK TO SQUADRON</button>
+    </div>
+  </div>
+
+  <canvas id="game"></canvas>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+// --- Supabase Config ---
+const SUPABASE_URL = 'https://supabase.evnx.vn';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzc3MzA0MzQzLCJleHAiOjIwOTI2NjQzNDN9.W1VMEabScFAdtk16t-mtx9Ccpo6apE65BY2etMg2skA';
+const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  db: { schema: 'flappy_xwing' }
+});
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+// UI Elements
+const loginPanel = document.getElementById('login-panel');
+const leaderboardPanel = document.getElementById('leaderboard-panel');
+const adminPanel = document.getElementById('admin-panel');
+const leaderboardList = document.getElementById('leaderboard-list');
+const adminTableBody = document.getElementById('admin-table-body');
+const loadingSpinner = document.getElementById('loading-spinner');
+
+// --- Configuration ---
+const CONFIG = {
+  width: 400,
+  height: 600,
+  gravity: 0.42,
+  flapStrength: -7.5,
+  rockWidth: 68,
+  rockGap: 145,
+  rockSpeed: 2.6,
+  rockInterval: 1500,
+  groundHeight: 80,
+  xwingX: 80,
+  starsCount: 60
+};
+
+canvas.width = CONFIG.width;
+canvas.height = CONFIG.height;
+
+// --- Game State ---
+let gameState = 'login'; // login, ready, playing, gameover
+let score = 0;
+let highScore = parseInt(localStorage.getItem('xwingHighScore')) || 0;
+let xwing, rocks, particles, stars;
+let groundX = 0;
+let lastRockTime = 0;
+let frameCount = 0;
+let currentUser = JSON.parse(localStorage.getItem('xwingUser')) || null;
+
+// --- Supabase Functions ---
+async function registerUser() {
+  const username = document.getElementById('username').value;
+  const email = document.getElementById('email').value;
+  const linkedin = document.getElementById('linkedin').value;
+
+  if (!username || !email) {
+    alert('Username and Email are required!');
+    return;
+  }
+
+  loadingSpinner.style.display = 'block';
+  
+  try {
+    // Check if user exists
+    let { data: user, error } = await _supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error;
+
+    if (!user) {
+      // Create user
+      const { data: newUser, error: insertError } = await _supabase
+        .from('users')
+        .insert([{ username, email, linkedin_url: linkedin }])
+        .select()
+        .single();
+      
+      if (insertError) throw insertError;
+      user = newUser;
+    }
+
+    currentUser = user;
+    localStorage.setItem('xwingUser', JSON.stringify(user));
+    loginPanel.style.display = 'none';
+    gameState = 'ready';
+  } catch (err) {
+    console.error(err);
+    alert('Error connecting to Rebel base: ' + err.message);
+  } finally {
+    loadingSpinner.style.display = 'none';
+  }
+}
+
+async function saveScore() {
+  if (!currentUser) return;
+  
+  try {
+    await _supabase
+      .from('leaderboard')
+      .insert([{ user_id: currentUser.id, score: score }]);
+  } catch (err) {
+    console.error('Failed to save score:', err);
+  }
+}
+
+async function fetchLeaderboard() {
+  try {
+    const { data, error } = await _supabase
+      .from('leaderboard')
+      .select('score, users(username)')
+      .order('score', { ascending: false })
+      .limit(10);
+
+    if (error) throw error;
+
+    leaderboardList.innerHTML = data.map((entry, i) => `
+      <li class="leaderboard-item">
+        <span class="rank">#${i + 1}</span>
+        <span class="name">${entry.users.username}</span>
+        <span class="l-score">${entry.score}</span>
+      </li>
+    `).join('');
+  } catch (err) {
+    console.error('Failed to fetch leaderboard:', err);
+  }
+}
+
+async function fetchAdminData() {
+  try {
+    const { data, error } = await _supabase
+      .from('users')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    adminTableBody.innerHTML = data.map(user => `
+      <tr>
+        <td>${user.username}</td>
+        <td>${user.email}</td>
+        <td>${user.linkedin_url ? `<a href="${user.linkedin_url}" target="_blank" class="linkedin-link">View</a>` : 'N/A'}</td>
+      </tr>
+    `).join('');
+  } catch (err) {
+    console.error('Failed to fetch admin data:', err);
+  }
+}
+
+// --- X-Wing Fighter ---
+function createXWing() {
+  return {
+    x: CONFIG.xwingX,
+    y: CONFIG.height / 2 - 50,
+    velocity: 0,
+    rotation: 0,
+    width: 38,
+    height: 24
+  };
+}
+
+// --- Particles ---
+function createParticle(x, y, type = 'score') {
+  if (type === 'thrust') {
+    return {
+      x, y,
+      vx: -2 - Math.random()*2, vy: (Math.random()-0.5)*1.5,
+      life: 1, decay: 0.04, size: 2+Math.random()*3,
+      color: `hsl(${Math.random()*30}, 90%, ${50+Math.random()*40}%)`
+    };
+  }
+  return {
+    x, y,
+    vx: (Math.random() - 0.5) * 5, vy: (Math.random() - 0.5) * 5,
+    life: 1, decay: 0.025 + Math.random() * 0.03, size: 2+Math.random()*4,
+    color: `hsl(${40 + Math.random()*20}, 80%, ${50+Math.random()*30}%)`
+  };
+}
+
+// --- Stars ---
+function createStars() {
+  const arr = [];
+  for(let i=0; i<CONFIG.starsCount; i++) {
+    arr.push({
+      x: Math.random() * CONFIG.width,
+      y: Math.random() * (CONFIG.height - CONFIG.groundHeight),
+      size: Math.random() * 1.5 + 0.5,
+      twinkle: Math.random() * Math.PI * 2,
+      speed: 0.02 + Math.random() * 0.04
+    });
+  }
+  return arr;
+}
+
+function init() {
+  xwing = createXWing();
+  rocks = [];
+  particles = [];
+  stars = createStars();
+  groundX = 0;
+  score = 0;
+  frameCount = 0;
+  lastRockTime = 0;
+
+  if (!currentUser) {
+    gameState = 'login';
+    loginPanel.style.display = 'flex';
+  } else {
+    gameState = 'ready';
+  }
+}
+
+init();
+
+// --- Drawing Functions ---
+function drawSky() {
+  const grad = ctx.createLinearGradient(0, 0, 0, CONFIG.height - CONFIG.groundHeight);
+  grad.addColorStop(0, '#050510');
+  grad.addColorStop(0.5, '#1a0b2e');
+  grad.addColorStop(1, '#3d1c4a');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, CONFIG.width, CONFIG.height - CONFIG.groundHeight);
+
+  // Stars
+  stars.forEach(star => {
+    star.twinkle += star.speed;
+    const alpha = 0.4 + Math.sin(star.twinkle) * 0.3;
+    ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+    ctx.beginPath();
+    ctx.arc(star.x, star.y, star.size, 0, Math.PI*2);
+    ctx.fill();
+  });
+}
+
+function drawGround() {
+  const grad = ctx.createLinearGradient(0, CONFIG.height - CONFIG.groundHeight, 0, CONFIG.height);
+  grad.addColorStop(0, '#c27a5a');
+  grad.addColorStop(1, '#8b4513');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, CONFIG.height - CONFIG.groundHeight, CONFIG.width, CONFIG.groundHeight);
+
+  // Rocky top edge
+  ctx.fillStyle = '#a0522d';
+  for(let i=0; i<CONFIG.width; i+=18) {
+    const h = 4 + Math.sin(i*0.7)*3;
+    ctx.fillRect(i, CONFIG.height - CONFIG.groundHeight, 18, h);
+  }
+
+  // Scrolling sand pattern
+  ctx.strokeStyle = 'rgba(139, 69, 19, 0.35)';
+  ctx.lineWidth = 1;
+  for (let i = -20; i < CONFIG.width + 20; i += 28) {
+    const x = ((i + groundX) % (CONFIG.width + 40)) - 20;
+    ctx.beginPath();
+    ctx.moveTo(x, CONFIG.height - CONFIG.groundHeight + 12);
+    ctx.lineTo(x + 14, CONFIG.height);
+    ctx.stroke();
+  }
+
+  // Top border
+  ctx.fillStyle = '#7a3b2e';
+  ctx.fillRect(0, CONFIG.height - CONFIG.groundHeight, CONFIG.width, 3);
+}
+
+function drawRock(rock) {
+  const x = rock.x;
+  const topBottom = rock.topHeight;
+  const bottomTop = topBottom + CONFIG.rockGap;
+  const w = CONFIG.rockWidth;
+  const groundY = CONFIG.height - CONFIG.groundHeight;
+
+  // --- TOP ROCK ---
+  ctx.fillStyle = '#8B0000';
+  ctx.beginPath();
+  ctx.moveTo(x, 0);
+  ctx.lineTo(x + w, 0);
+  ctx.lineTo(x + w, topBottom);
+
+  // Jagged bottom edge (right to left)
+  const jagTopY = [topBottom - 6, topBottom + 3, topBottom - 8, topBottom + 2, topBottom];
+  for(let i = 0; i < jagTopY.length; i++) {
+    const jx = x + w * (1 - i/4);
+    ctx.lineTo(jx, jagTopY[i]);
+  }
+  ctx.closePath();
+  ctx.fill();
+
+  // Top rock cracks & texture
+  ctx.strokeStyle = '#5a0000';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(x + w*0.3, topBottom - 6);
+  ctx.lineTo(x + w*0.45, topBottom + 1);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x + w*0.7, topBottom - 8);
+  ctx.lineTo(x + w*0.85, topBottom + 2);
+  ctx.stroke();
+
+  // Top rock highlight (left side)
+  ctx.fillStyle = 'rgba(255, 100, 80, 0.2)';
+  ctx.fillRect(x + 3, 0, w * 0.3, topBottom);
+
+  // --- BOTTOM ROCK ---
+  ctx.fillStyle = '#8B0000';
+  ctx.beginPath();
+  ctx.moveTo(x, groundY);
+  ctx.lineTo(x + w, groundY);
+  ctx.lineTo(x + w, bottomTop);
+
+  // Jagged top edge (right to left)
+  const jagBotY = [bottomTop - 5, bottomTop + 4, bottomTop - 7, bottomTop + 3, bottomTop];
+  for(let i = 0; i < jagBotY.length; i++) {
+    const jx = x + w * (1 - i/4);
+    ctx.lineTo(jx, jagBotY[i]);
+  }
+  ctx.closePath();
+  ctx.fill();
+
+  // Bottom rock cracks & texture
+  ctx.strokeStyle = '#5a0000';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(x + w*0.3, bottomTop - 5);
+  ctx.lineTo(x + w*0.45, bottomTop + 2);
+  ctx.stroke();
+
+  // Bottom rock highlight (left side)
+  ctx.fillStyle = 'rgba(255, 100, 80, 0.2)';
+  ctx.fillRect(x + 3, bottomTop, w * 0.3, groundY - bottomTop);
+
+  // --- BORDERS ---
+  ctx.strokeStyle = '#3a0000';
+  ctx.lineWidth = 2;
+
+  // Top rock border
+  ctx.beginPath();
+  ctx.moveTo(x, 0);
+  ctx.lineTo(x + w, 0);
+  ctx.lineTo(x + w, topBottom);
+  for(let i = 0; i < jagTopY.length; i++) {
+    const jx = x + w * (1 - i/4);
+    ctx.lineTo(jx, jagTopY[i]);
+  }
+  ctx.closePath();
+  ctx.stroke();
+
+  // Bottom rock border
+  ctx.beginPath();
+  ctx.moveTo(x, groundY);
+  ctx.lineTo(x + w, groundY);
+  ctx.lineTo(x + w, bottomTop);
+  for(let i = 0; i < jagBotY.length; i++) {
+    const jx = x + w * (1 - i/4);
+    ctx.lineTo(jx, jagBotY[i]);
+  }
+  ctx.closePath();
+  ctx.stroke();
+
+  // --- VOLCANIC GLOW EFFECT ---
+  if (rock.scored) {
+    ctx.fillStyle = 'rgba(255, 60, 30, 0.15)';
+    ctx.fillRect(x - 4, topBottom - 4, w + 8, CONFIG.rockGap + 8);
+  }
+}
+
+
+function drawXWing() {
+  ctx.save();
+  ctx.translate(xwing.x, xwing.y);
+
+  // Rotation based on velocity
+  const targetRotation = Math.min(Math.max(xwing.velocity * 3.5, -25), 60) * (Math.PI / 180);
+  xwing.rotation += (targetRotation - xwing.rotation) * 0.15;
+  ctx.rotate(xwing.rotation);
+
+  // Wing tilt animation
+  const wingTilt = Math.sin(frameCount * 0.12) * 0.06 + (xwing.velocity * 0.025);
+
+  // Engine thrust particles
+  if (xwing.velocity < -2) {
+    for(let i=0; i<3; i++) {
+      particles.push(createParticle(xwing.x - 18, xwing.y + (Math.random()-0.5)*6, 'thrust'));
+    }
+  }
+
+  // Fuselage
+  ctx.fillStyle = '#1a1a2e';
+  ctx.beginPath();
+  ctx.moveTo(20, 0);
+  ctx.lineTo(-15, -9);
+  ctx.lineTo(-18, 0);
+  ctx.lineTo(-15, 9);
+  ctx.closePath();
+  ctx.fill();
+
+  // Cockpit bubble
+  ctx.fillStyle = '#e0f7fa';
+  ctx.beginPath();
+  ctx.ellipse(8, -2, 6, 4, 0, 0, Math.PI*2);
+  ctx.fill();
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // S-Foils (Wings)
+  ctx.save();
+  ctx.rotate(wingTilt);
+  ctx.fillStyle = '#0f0f1a';
+  // Top wing
+  ctx.beginPath();
+  ctx.moveTo(-5, -7);
+  ctx.lineTo(12, -20);
+  ctx.lineTo(14, -18);
+  ctx.lineTo(-3, -5);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#333';
+  ctx.stroke();
+
+  // Bottom wing
+  ctx.beginPath();
+  ctx.moveTo(-5, 7);
+  ctx.lineTo(12, 20);
+  ctx.lineTo(14, 18);
+  ctx.lineTo(-3, 5);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Red markings on wings
+  ctx.fillStyle = '#ff0000';
+  ctx.fillRect(2, -17, 9, 2.5);
+  ctx.fillRect(2, 14.5, 9, 2.5);
+  ctx.restore();
+
+  // Engines
+  ctx.fillStyle = '#4a4a5a';
+  ctx.beginPath();
+  ctx.ellipse(-16, -8, 4, 3, 0, 0, Math.PI*2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(-16, 8, 4, 3, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  // Engine glow/thrust
+  if (xwing.velocity < -1) {
+    const thrust = Math.min(Math.abs(xwing.velocity)/5, 1);
+    ctx.fillStyle = `rgba(255, ${100+thrust*155}, 0, ${0.3+thrust*0.7})`;
+    ctx.beginPath();
+    ctx.moveTo(-18, -7);
+    ctx.lineTo(-24-thrust*6, -5);
+    ctx.lineTo(-24-thrust*6, -9);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(-18, 7);
+    ctx.lineTo(-24-thrust*6, 9);
+    ctx.lineTo(-24-thrust*6, 5);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+function drawParticles() {
+  particles.forEach(p => {
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+}
+
+function drawScore() {
+  if (gameState === 'playing' || gameState === 'gameover') {
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.font = 'bold 52px Courier New';
+    ctx.textAlign = 'center';
+    ctx.fillText(score, CONFIG.width / 2 + 2, 72);
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.strokeStyle = '#ff3333';
+    ctx.lineWidth = 4;
+    ctx.font = 'bold 52px Courier New';
+    ctx.strokeText(score, CONFIG.width / 2, 70);
+    ctx.fillText(score, CONFIG.width / 2, 70);
+  }
+}
+
+function drawReadyScreen() {
+  ctx.fillStyle = '#FFFFFF';
+  ctx.strokeStyle = '#ff3333';
+  ctx.lineWidth = 4;
+  ctx.font = 'bold 46px Courier New';
+  ctx.textAlign = 'center';
+  ctx.strokeText('X-WING FLIGHT', CONFIG.width / 2, 150);
+  ctx.fillText('X-WING FLIGHT', CONFIG.width / 2, 150);
+
+  ctx.fillStyle = '#FFE066';
+  ctx.font = 'bold 20px Courier New';
+  ctx.lineWidth = 2;
+  ctx.strokeText('Click or Space to Launch', CONFIG.width / 2, 300);
+  ctx.fillText('Click or Space to Launch', CONFIG.width / 2, 300);
+
+  if (highScore > 0) {
+    ctx.fillStyle = '#FFD700';
+    ctx.font = 'bold 18px Courier New';
+    ctx.lineWidth = 2;
+    ctx.strokeText(`Best: ${highScore}`, CONFIG.width / 2, 340);
+    ctx.fillText(`Best: ${highScore}`, CONFIG.width / 2, 340);
+  }
+
+  xwing.y = CONFIG.height / 2 - 50 + Math.sin(frameCount * 0.06) * 15;
+  drawXWing();
+}
+
+function drawGameOver() {
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+  ctx.fillRect(0, 0, CONFIG.width, CONFIG.height);
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// --- Update Functions ---
+function updateXWing() {
+  xwing.velocity += CONFIG.gravity;
+  xwing.y += xwing.velocity;
+
+  if (xwing.y < -10) {
+    xwing.y = -10;
+    xwing.velocity = 0;
+  }
+
+  if (xwing.y + xwing.height / 2 > CONFIG.height - CONFIG.groundHeight) {
+    xwing.y = CONFIG.height - CONFIG.groundHeight - xwing.height / 2;
+    gameOver();
+  }
+}
+
+function updateRocks() {
+  rocks.forEach(rock => {
+    rock.x -= CONFIG.rockSpeed;
+
+    if (!rock.scored && rock.x + CONFIG.rockWidth < xwing.x) {
+      rock.scored = true;
+      score++;
+
+      for (let i = 0; i < 8; i++) {
+        particles.push(createParticle(xwing.x, xwing.y - 30));
+      }
+    }
+  });
+
+  rocks = rocks.filter(r => r.x + CONFIG.rockWidth > -10);
+
+  const now = Date.now();
+  if (now - lastRockTime > CONFIG.rockInterval) {
+    const minTop = 60;
+    const maxTop = CONFIG.height - CONFIG.groundHeight - CONFIG.rockGap - 60;
+    const topHeight = minTop + Math.random() * (maxTop - minTop);
+
+    rocks.push({
+      x: CONFIG.width + 10,
+      topHeight: topHeight,
+      scored: false
+    });
+    lastRockTime = now;
+  }
+}
+
+function updateParticles() {
+  particles.forEach(p => {
+    p.x += p.vx;
+    p.y += p.vy;
+    p.life -= p.decay;
+  });
+  particles = particles.filter(p => p.life > 0);
+}
+
+function flap() {
+  if (gameState === 'login') return;
+  
+  if (gameState === 'ready') {
+    gameState = 'playing';
+    xwing.velocity = CONFIG.flapStrength;
+    lastRockTime = Date.now();
+    return;
+  }
+
+  if (gameState === 'gameover') return;
+
+  xwing.velocity = CONFIG.flapStrength;
+
+  for (let i = 0; i < 4; i++) {
+    particles.push(createParticle(xwing.x - 12, xwing.y + 5, 'thrust'));
+  }
+}
+
+async function gameOver() {
+  if (gameState !== 'playing') return;
+  gameState = 'gameover';
+
+  if (score > highScore) {
+    highScore = score;
+    localStorage.setItem('xwingHighScore', highScore);
+  }
+
+  for (let i = 0; i < 25; i++) {
+    particles.push(createParticle(xwing.x, xwing.y));
+  }
+
+  // Save score and show leaderboard
+  await saveScore();
+  await fetchLeaderboard();
+  leaderboardPanel.style.display = 'flex';
+}
+
+function checkRockCollision() {
+  const bx = xwing.x - xwing.width / 2 + 4;
+  const by = xwing.y - xwing.height / 2 + 3;
+  const bw = xwing.width - 8;
+  const bh = xwing.height - 6;
+
+  for (let rock of rocks) {
+    const rx = rock.x;
+    const rw = CONFIG.rockWidth;
+    const topH = rock.topHeight;
+    const bottomY = topH + CONFIG.rockGap;
+
+    if (bx + bw > rx && bx < rx + rw && by < topH) return true;
+    if (bx + bw > rx && bx < rx + rw && by + bh > bottomY) return true;
+  }
+  return false;
+}
+
+// --- Main Game Loop ---
+function gameLoop() {
+  frameCount++;
+
+  ctx.clearRect(0, 0, CONFIG.width, CONFIG.height);
+
+  drawSky();
+
+  if (gameState === 'playing') {
+    updateXWing();
+    updateRocks();
+    updateParticles();
+
+    groundX = (groundX + CONFIG.rockSpeed) % CONFIG.width;
+
+    if (checkRockCollision()) {
+      gameOver();
+    }
+  } else if (gameState === 'ready') {
+    updateParticles();
+    groundX = (groundX + 1) % CONFIG.width;
+  } else if (gameState === 'gameover' || gameState === 'login') {
+    updateParticles();
+    xwing.velocity += CONFIG.gravity;
+    xwing.y += xwing.velocity;
+    if (xwing.y > CONFIG.height - CONFIG.groundHeight - xwing.height / 2) {
+      xwing.y = CONFIG.height - CONFIG.groundHeight - xwing.height / 2;
+      xwing.velocity = 0;
+    }
+  }
+
+  rocks.forEach(drawRock);
+  drawGround();
+  drawParticles();
+
+  if (gameState !== 'gameover') {
+    drawXWing();
+  } else {
+    ctx.save();
+    ctx.translate(xwing.x, xwing.y);
+    xwing.rotation = Math.PI / 2;
+    ctx.rotate(xwing.rotation);
+    ctx.fillStyle = '#1a1a2e';
+    ctx.beginPath();
+    ctx.moveTo(20, 0);
+    ctx.lineTo(-15, -9);
+    ctx.lineTo(-18, 0);
+    ctx.lineTo(-15, 9);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.fillStyle = '#ff0000';
+    ctx.font = 'bold 10px Courier New';
+    ctx.textAlign = 'center';
+    ctx.fillText('✕', 8, -2);
+    ctx.restore();
+  }
+
+  drawScore();
+
+  if (gameState === 'ready') drawReadyScreen();
+
+  requestAnimationFrame(gameLoop);
+}
+
+// --- Event Listeners ---
+document.getElementById('btn-register').addEventListener('click', registerUser);
+
+document.getElementById('btn-restart').addEventListener('click', () => {
+  leaderboardPanel.style.display = 'none';
+  init();
+});
+
+document.getElementById('btn-admin-toggle').addEventListener('click', async () => {
+  leaderboardPanel.style.display = 'none';
+  adminPanel.style.display = 'flex';
+  await fetchAdminData();
+});
+
+document.getElementById('btn-admin-back').addEventListener('click', () => {
+  adminPanel.style.display = 'none';
+  leaderboardPanel.style.display = 'flex';
+});
+
+// --- Input Handling ---
+canvas.addEventListener('click', flap);
+canvas.addEventListener('touchstart', (e) => { e.preventDefault(); flap(); });
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space' || e.code === 'ArrowUp') {
+    e.preventDefault();
+    flap();
+  }
+});
+
+// --- Start ---
+gameLoop();
+</script>
+
+</body>
+</html>
