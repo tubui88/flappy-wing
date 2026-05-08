@@ -268,6 +268,7 @@ let groundX = 0;
 let lastRockTime = 0;
 let frameCount = 0;
 let startTime = 0;
+let lastTime = 0;
 let nextForceScore = 20 + Math.floor(Math.random() * 11);
 let currentUser = JSON.parse(localStorage.getItem('xwingUser')) || null;
 
@@ -796,12 +797,12 @@ function roundRect(ctx, x, y, w, h, r) {
 }
 
 // --- Update Functions ---
-function updateXWing() {
-  xwing.velocity += CONFIG.gravity;
-  xwing.y += xwing.velocity;
+function updateXWing(delta) {
+  xwing.velocity += CONFIG.gravity * delta;
+  xwing.y += xwing.velocity * delta;
 
   if (xwing.invulnerable) {
-    xwing.invulnerableTimer--;
+    xwing.invulnerableTimer -= delta;
     if (xwing.invulnerableTimer <= 0) {
       xwing.invulnerable = false;
     }
@@ -818,16 +819,16 @@ function updateXWing() {
   }
 }
 
-function updateRocks() {
+function updateRocks(delta) {
   const currentSpeed = getRockSpeed();
   const currentInterval = getRockInterval();
 
   rocks.forEach(rock => {
-    rock.x -= currentSpeed;
+    rock.x -= currentSpeed * delta;
 
     // Moving rocks after score 40
     if (score >= 40) {
-      rock.topHeight += Math.sin(frameCount * 0.05 + rock.x * 0.01) * 1.5;
+      rock.topHeight += Math.sin(frameCount * 0.05 + rock.x * 0.01) * 1.5 * delta;
     }
 
     if (!rock.scored && rock.x + CONFIG.rockWidth < xwing.x) {
@@ -854,7 +855,7 @@ function updateRocks() {
 
   // Update Force element
   if (forcePowerUp) {
-    forcePowerUp.x -= currentSpeed;
+    forcePowerUp.x -= currentSpeed * delta;
     if (forcePowerUp.x < -50) forcePowerUp = null;
     
     // Collision check with Force
@@ -864,7 +865,7 @@ function updateRocks() {
       const dist = Math.sqrt(dx*dx + dy*dy);
       if (dist < 40) {
         xwing.invulnerable = true;
-        xwing.invulnerableTimer = 300; // 5 seconds @ 60fps
+        xwing.invulnerableTimer = 300; // 5 seconds @ 60fps base
         forcePowerUp = null;
         // Burst effect
         for(let i=0; i<20; i++) {
@@ -958,7 +959,12 @@ function checkRockCollision() {
 }
 
 // --- Main Game Loop ---
-function gameLoop() {
+function gameLoop(timestamp) {
+  if (!lastTime) lastTime = timestamp;
+  const dt = timestamp - lastTime;
+  lastTime = timestamp;
+  const delta = Math.min(dt / 16.67, 3); // Cap delta to avoid huge jumps
+  
   frameCount++;
 
   ctx.clearRect(0, 0, CONFIG.width, CONFIG.height);
@@ -966,22 +972,22 @@ function gameLoop() {
   drawSky();
 
   if (gameState === 'playing') {
-    updateXWing();
-    updateRocks();
+    updateXWing(delta);
+    updateRocks(delta);
     updateParticles();
 
-    groundX = (groundX + getRockSpeed()) % CONFIG.width;
+    groundX = (groundX - getRockSpeed() * delta) % CONFIG.width;
 
     if (checkRockCollision()) {
       gameOver();
     }
   } else if (gameState === 'ready') {
     updateParticles();
-    groundX = (groundX + 1) % CONFIG.width;
+    groundX = (groundX - 1 * delta) % CONFIG.width;
   } else if (gameState === 'gameover' || gameState === 'login') {
     updateParticles();
-    xwing.velocity += CONFIG.gravity;
-    xwing.y += xwing.velocity;
+    xwing.velocity += CONFIG.gravity * delta;
+    xwing.y += xwing.velocity * delta;
     if (xwing.y > CONFIG.height - CONFIG.groundHeight - xwing.height / 2) {
       xwing.y = CONFIG.height - CONFIG.groundHeight - xwing.height / 2;
       xwing.velocity = 0;
