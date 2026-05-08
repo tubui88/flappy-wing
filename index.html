@@ -277,33 +277,33 @@ let currentUser = JSON.parse(localStorage.getItem('xwingUser')) || null;
 function pickGearType(scoreTier) {
   const r = Math.random() * 100;
   if (scoreTier <= 20) {
-    if (r < 35) return 'shield';
-    if (r < 70) return 'speed';
+    if (r < 35) return 'shield_boost';
+    if (r < 70) return 'quantum_pocket';
     if (r < 80) return 'brake';
     if (r < 90) return 'bombardment';
     return 'transform';
   } else if (scoreTier <= 40) {
-    if (r < 30) return 'shield';
-    if (r < 60) return 'speed';
+    if (r < 30) return 'shield_boost';
+    if (r < 60) return 'quantum_pocket';
     if (r < 90) return 'brake';
     return 'bombardment';
   } else if (scoreTier === 50) {
     return 'transform';
   } else if (scoreTier <= 70) {
-    if (r < 30) return 'shield';
-    if (r < 40) return 'speed';
+    if (r < 30) return 'shield_boost';
+    if (r < 40) return 'quantum_pocket';
     if (r < 80) return 'brake';
     if (r < 90) return 'bombardment';
     return 'transform';
   } else if (scoreTier <= 100) {
-    if (r < 20) return 'shield';
-    if (r < 30) return 'speed';
+    if (r < 20) return 'shield_boost';
+    if (r < 30) return 'quantum_pocket';
     if (r < 50) return 'brake';
     if (r < 80) return 'bombardment';
     return 'transform';
   } else {
-    if (r < 20) return 'shield';
-    if (r < 40) return 'speed';
+    if (r < 20) return 'shield_boost';
+    if (r < 40) return 'quantum_pocket';
     if (r < 60) return 'brake';
     if (r < 80) return 'bombardment';
     return 'transform';
@@ -644,8 +644,8 @@ function drawRock(rock) {
 
 function drawSuperGear(x, y, type) {
   let colors = {
-    'shield': 'cyan',
-    'speed': 'lime',
+    'shield_boost': 'cyan',
+    'quantum_pocket': 'magenta',
     'brake': 'orange',
     'bombardment': 'red',
     'transform': 'yellow'
@@ -680,7 +680,8 @@ function drawSuperGear(x, y, type) {
   ctx.font = 'bold 14px Outfit';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(type.charAt(0).toUpperCase(), x, y + 1);
+  let initial = type === 'shield_boost' ? 'S' : (type === 'quantum_pocket' ? 'Q' : type.charAt(0).toUpperCase());
+  ctx.fillText(initial, x, y + 1);
 }
 
 function drawXWing() {
@@ -716,8 +717,7 @@ function drawXWing() {
   // Power Glows
   if (xwing.activePower) {
     let glowColor = 'white';
-    if (xwing.activePower.type === 'shield') glowColor = 'cyan';
-    if (xwing.activePower.type === 'speed') glowColor = 'lime';
+    if (xwing.activePower.type === 'shield_boost') glowColor = 'cyan';
     if (xwing.activePower.type === 'brake') glowColor = 'orange';
 
     if (xwing.activePower.type !== 'bombardment') {
@@ -735,7 +735,7 @@ function drawXWing() {
   }
 
   // Engine thrust particles
-  if (xwing.velocity < -2 || (xwing.activePower && xwing.activePower.type === 'speed')) {
+  if (xwing.velocity < -2 || (xwing.activePower && xwing.activePower.type === 'shield_boost')) {
     for(let i=0; i<3; i++) {
       particles.push(createParticle(xwing.x - 18, xwing.y + (Math.random()-0.5)*6, 'thrust'));
     }
@@ -933,7 +933,7 @@ function updateXWing(delta) {
 
 function updateRocks(delta) {
   let speedMult = 1;
-  if (xwing.activePower && xwing.activePower.type === 'speed') speedMult = 2;
+  if (xwing.activePower && xwing.activePower.type === 'shield_boost') speedMult = 2;
   if (xwing.activePower && xwing.activePower.type === 'brake') speedMult = 0.5;
 
   const currentSpeed = getRockSpeed() * speedMult;
@@ -968,7 +968,6 @@ function updateRocks(delta) {
     if (!rock.scored && rock.x + CONFIG.rockWidth < xwing.x) {
       rock.scored = true;
       let earned = 1;
-      if (xwing.activePower && (xwing.activePower.type === 'shield' || xwing.activePower.type === 'speed')) earned = 2;
       if (xwing.activePower && xwing.activePower.type === 'transform') earned = 3;
       score += earned;
 
@@ -985,7 +984,12 @@ function updateRocks(delta) {
       const dy = xwing.y - gy;
       if (Math.sqrt(dx*dx + dy*dy) < 35) {
         rock.gearCollected = true;
-        xwing.activePower = { type: rock.gearType, timer: 300 }; // 5s @ 60fps
+        let powerType = rock.gearType;
+        if (powerType === 'quantum_pocket') {
+          const others = ['shield_boost', 'brake', 'bombardment', 'transform'];
+          powerType = others[Math.floor(Math.random() * others.length)];
+        }
+        xwing.activePower = { type: powerType, timer: 300 }; // 5s @ 60fps
         for(let i=0; i<20; i++) particles.push(createParticle(xwing.x, xwing.y, 'score'));
       }
     }
@@ -1062,7 +1066,7 @@ async function gameOver() {
 }
 
 function checkRockCollision() {
-  if (xwing.activePower && (xwing.activePower.type === 'shield' || xwing.activePower.type === 'bombardment' || xwing.activePower.type === 'transform')) return false;
+  if (xwing.activePower && (xwing.activePower.type === 'shield_boost' || xwing.activePower.type === 'bombardment' || xwing.activePower.type === 'transform')) return false;
 
   const bx = xwing.x - xwing.width / 2 + 4;
   const by = xwing.y - xwing.height / 2 + 3;
@@ -1100,7 +1104,7 @@ function gameLoop(timestamp) {
     updateParticles();
 
     let speedMult = 1;
-    if (xwing.activePower && xwing.activePower.type === 'speed') speedMult = 2;
+    if (xwing.activePower && xwing.activePower.type === 'shield_boost') speedMult = 2;
     if (xwing.activePower && xwing.activePower.type === 'brake') speedMult = 0.5;
 
     groundX = (groundX - getRockSpeed() * speedMult * delta) % CONFIG.width;
