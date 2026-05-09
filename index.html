@@ -818,15 +818,29 @@ function drawSuperGear(x, y, type) {
     ctx.fill();
 
   } else if (type === 'transform') {
-    ctx.fillStyle = '#fff';
+    // Banana shape
+    ctx.fillStyle = '#fff000'; // Bright yellow
     ctx.beginPath();
-    for (let i = 0; i < 5; i++) {
-      ctx.lineTo(Math.cos((18 + i * 72) / 180 * Math.PI) * size * 0.7,
-                 -Math.sin((18 + i * 72) / 180 * Math.PI) * size * 0.7);
-      ctx.lineTo(Math.cos((54 + i * 72) / 180 * Math.PI) * size * 0.3,
-                 -Math.sin((54 + i * 72) / 180 * Math.PI) * size * 0.3);
-    }
+    ctx.moveTo(-size * 0.3, -size * 0.6); // Top stem base
+    // Outer curve
+    ctx.bezierCurveTo(size * 0.8, -size * 0.4, size * 0.8, size * 0.4, -size * 0.2, size * 0.6);
+    // Inner curve
+    ctx.bezierCurveTo(size * 0.4, size * 0.3, size * 0.4, -size * 0.3, -size * 0.4, -size * 0.5);
     ctx.closePath();
+    ctx.fill();
+
+    // Stem
+    ctx.strokeStyle = '#6b4c1a'; // Brown
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-size * 0.35, -size * 0.55);
+    ctx.lineTo(-size * 0.5, -size * 0.7);
+    ctx.stroke();
+
+    // Dark tip
+    ctx.fillStyle = '#6b4c1a';
+    ctx.beginPath();
+    ctx.arc(-size * 0.2, size * 0.6, size * 0.1, 0, Math.PI * 2);
     ctx.fill();
   }
 
