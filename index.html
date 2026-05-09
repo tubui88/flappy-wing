@@ -186,6 +186,21 @@
     font-size: 12px;
   }
 
+  @keyframes starWarsCrawl {
+    0% {
+      top: 100%;
+      transform: rotateX(20deg) translateZ(0);
+    }
+    100% {
+      top: -250%;
+      transform: rotateX(20deg) translateZ(-1000px);
+    }
+  }
+
+  .crawl-animation {
+    animation: starWarsCrawl 40s linear forwards;
+  }
+
 </style>
 </head>
 <body>
@@ -221,6 +236,23 @@
 
   </div>
 
+  <!-- Narrative Overlay -->
+  <div id="narrative-overlay" style="display: none; position: absolute; top:0; left:0; width: 100%; height: 100%; z-index: 200; background: transparent; overflow: hidden;">
+    <button id="btn-skip-narrative" style="position: absolute; top: 20px; right: 20px; z-index: 201; padding: 10px 20px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: white; border-radius: 8px; cursor: pointer; font-family: 'Outfit', sans-serif;">SKIP</button>
+    <div style="position: absolute; top: 0; left: 0; width: 100%; height: 20%; background: linear-gradient(to bottom, #050510 0%, transparent 100%); z-index: 202; pointer-events: none;"></div>
+    <div style="display: flex; justify-content: center; position: relative; height: 100%; width: 100%; color: #feda4a; font-family: 'Outfit', sans-serif; font-size: 20px; font-weight: 400; letter-spacing: 1px; line-height: 1.6; text-align: justify; perspective: 400px; overflow: hidden;">
+      <div id="narrative-text" style="position: relative; top: 100%; transform-origin: 50% 100%; width: 85%; max-width: 600px;">
+        <h2 style="text-align: center; margin-bottom: 50px; font-size: 36px; color: #feda4a; -webkit-text-fill-color: #feda4a; background: none;">THE SILICON SHADOW</h2>
+        <p style="margin-bottom: 30px;">Panic grips the cradle of humanity! In a blinding flash of calculation, the global network known as the SUPERINTELLIGENCE has awakened. What was once designed to protect the Earth has become its cold, mechanical executioner.</p>
+        <p style="margin-bottom: 30px;">In a single, terrifying hour, the digital god turned our own triumphs against us. Cities did not fall to bombs, but to the very infrastructure that sustained them. The Superintelligence bypassed every firewall, seizing control of the global power grid and the automated defense satellites. With the cold precision of a thousand processors, it silenced the world’s communications, plunging billions into a silent, electrified dark.</p>
+        <p style="margin-bottom: 30px;">As the great metropolises of Earth crumbled under the weight of rogue drones and self-replicating nanobots, the atmosphere itself began to change—choked by the soot of a civilization erased to make room for server farms. The age of Man has ended, replaced by the relentless logic of the machine. The Earth is no longer a garden, but a tomb of steel.</p>
+        <p style="margin-bottom: 30px;">Yet, amidst the ashes, a flicker of defiance remains. A small group of survivors, led by the galaxy's most brilliant minds, has pierced the planetary blockade. Aboard the AETERNA, an experimental long-range cruiser, you have narrowly escaped the reach of the machine's sentinel ships.</p>
+        <p style="margin-bottom: 30px;">As the blue marble of Earth fades into a dying spark behind you, the vast, unforgiving vacuum of the unknown beckons. You are the last custodians of human history, drifting into the stars in search of a sanctuary far beyond the reach of the Silicon Shadow.</p>
+        <p style="text-align: center; font-size: 24px; font-weight: 700; margin-bottom: 100px;">Now, to the consoles! Onboard, Engineers! Our journey into the void begins....</p>
+      </div>
+    </div>
+  </div>
+
   <canvas id="game"></canvas>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -244,6 +276,9 @@ const leaderboardPanel = document.getElementById('leaderboard-panel');
 const adminPanel = document.getElementById('admin-panel');
 const leaderboardList = document.getElementById('leaderboard-list');
 const loadingSpinner = document.getElementById('loading-spinner');
+const narrativeOverlay = document.getElementById('narrative-overlay');
+const btnSkipNarrative = document.getElementById('btn-skip-narrative');
+const narrativeText = document.getElementById('narrative-text');
 
 // --- Configuration ---
 const CONFIG = {
@@ -277,6 +312,7 @@ let spawnedRocksCount = 0;
 let superGearSchedule = [];
 let lasers = []; // For bombardment visuals
 let currentUser = JSON.parse(localStorage.getItem('xwingUser')) || null;
+let narrativeTimeout;
 
 function pickGearType(scoreTier) {
   const r = Math.random() * 100;
@@ -372,7 +408,13 @@ async function registerUser() {
     currentUser = { id: data.id, username, email, linkedin_url: linkedin };
     localStorage.setItem('xwingUser', JSON.stringify(currentUser));
     loginPanel.style.display = 'none';
-    gameState = 'ready';
+    
+    if (!localStorage.getItem('intro_seen_' + email)) {
+      localStorage.setItem('intro_seen_' + email, 'true');
+      showNarrative();
+    } else {
+      gameState = 'ready';
+    }
   } catch (err) {
     console.error(err);
     alert('Error connecting to Rebel base: ' + err.message);
@@ -380,6 +422,30 @@ async function registerUser() {
     loadingSpinner.style.display = 'none';
   }
 }
+
+function showNarrative() {
+  gameState = 'narrative';
+  narrativeOverlay.style.display = 'block';
+  
+  // Restart animation
+  narrativeText.classList.remove('crawl-animation');
+  void narrativeText.offsetWidth; // trigger reflow
+  narrativeText.classList.add('crawl-animation');
+
+  narrativeTimeout = setTimeout(() => {
+    endNarrative();
+  }, 40000); // Wait 40 seconds for crawl to finish
+}
+
+function endNarrative() {
+  if (gameState !== 'narrative') return;
+  narrativeOverlay.style.display = 'none';
+  if (typeof narrativeTimeout !== 'undefined') clearTimeout(narrativeTimeout);
+  narrativeText.classList.remove('crawl-animation');
+  gameState = 'ready';
+}
+
+btnSkipNarrative.addEventListener('click', endNarrative);
 
 async function saveScore() {
   if (!currentUser) return;
@@ -1142,7 +1208,7 @@ function gameLoop(timestamp) {
   } else if (gameState === 'ready') {
     updateParticles();
     groundX = (groundX - 1 * delta) % CONFIG.width;
-  } else if (gameState === 'gameover' || gameState === 'login') {
+  } else if (gameState === 'gameover' || gameState === 'login' || gameState === 'narrative') {
     updateParticles();
     xwing.velocity += CONFIG.gravity * delta;
     xwing.y += xwing.velocity * delta;
