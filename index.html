@@ -234,11 +234,12 @@
       <button id="btn-restart">RE-ENGAGE</button>
     </div>
 
+    <button id="btn-logout" style="display: none; position: fixed; top: 20px; left: 20px; z-index: 150; padding: 10px 20px; background: rgba(255,100,100,0.2); border: 1px solid rgba(255,100,100,0.5); color: #ffcccc; border-radius: 8px; cursor: pointer; font-family: 'Outfit', sans-serif;">LOGOUT</button>
   </div>
 
   <!-- Narrative Overlay -->
   <div id="narrative-overlay" style="display: none; position: absolute; top:0; left:0; width: 100%; height: 100%; z-index: 200; background: transparent; overflow: hidden;">
-    <button id="btn-skip-narrative" style="position: absolute; top: 20px; right: 20px; z-index: 201; padding: 10px 20px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: white; border-radius: 8px; cursor: pointer; font-family: 'Outfit', sans-serif;">SKIP</button>
+    <button id="btn-skip-narrative" style="position: fixed; top: 20px; right: 20px; z-index: 9999; padding: 10px 20px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: white; border-radius: 8px; cursor: pointer; font-family: 'Outfit', sans-serif;">SKIP NARRATIVE</button>
     <div style="position: absolute; top: 0; left: 0; width: 100%; height: 20%; background: linear-gradient(to bottom, #050510 0%, transparent 100%); z-index: 202; pointer-events: none;"></div>
     <div style="display: flex; justify-content: center; position: relative; height: 100%; width: 100%; color: #feda4a; font-family: 'Outfit', sans-serif; font-size: 20px; font-weight: 400; letter-spacing: 1px; line-height: 1.6; text-align: justify; perspective: 400px; overflow: hidden;">
       <div id="narrative-text" style="position: relative; top: 100%; transform-origin: 50% 100%; width: 85%; max-width: 600px;">
@@ -443,6 +444,7 @@ function endNarrative() {
   if (typeof narrativeTimeout !== 'undefined') clearTimeout(narrativeTimeout);
   narrativeText.classList.remove('crawl-animation');
   gameState = 'ready';
+  document.getElementById('btn-logout').style.display = 'block';
 }
 
 btnSkipNarrative.addEventListener('click', endNarrative);
@@ -561,6 +563,7 @@ function init() {
     loginPanel.style.display = 'flex';
   } else {
     gameState = 'ready';
+    document.getElementById('btn-logout').style.display = 'block';
   }
 }
 
@@ -1122,6 +1125,7 @@ function flap() {
   
   if (gameState === 'ready') {
     gameState = 'playing';
+    document.getElementById('btn-logout').style.display = 'none';
     xwing.velocity = CONFIG.flapStrength;
     lastRockTime = Date.now();
     startTime = Date.now();
@@ -1223,9 +1227,9 @@ function gameLoop(timestamp) {
   drawGround();
   drawParticles();
 
-  if (gameState !== 'gameover') {
+  if (gameState === 'playing' || gameState === 'ready' || gameState === 'login') {
     drawXWing();
-  } else {
+  } else if (gameState === 'gameover') {
     ctx.save();
     ctx.translate(xwing.x, xwing.y);
     xwing.rotation = Math.PI / 2;
@@ -1264,8 +1268,10 @@ document.getElementById('btn-restart').addEventListener('click', () => {
   init();
 });
 
-document.getElementById('btn-restart').addEventListener('click', () => {
-  leaderboardPanel.style.display = 'none';
+document.getElementById('btn-logout').addEventListener('click', () => {
+  localStorage.removeItem('xwingUser');
+  currentUser = null;
+  document.getElementById('btn-logout').style.display = 'none';
   init();
 });
 
