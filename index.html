@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>X-Wing Flight</title>
+<title>Spaceship Engineer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Outfit:wght@400;700&display=swap" rel="stylesheet">
@@ -191,8 +191,9 @@
 <body>
   <div id="overlay-container">
     <!-- Login Panel -->
-    <div id="login-panel" class="glass-panel">
-      <h2>PILOT REGISTRATION</h2>
+    <div id="login-panel" class="glass-panel" style="text-align: center;">
+      <img src="logo.png" alt="Logo" style="max-height: 40px; margin-bottom: 10px; display: block; margin: 0 auto 10px auto;">
+      <h2 style="margin-bottom: 20px;">SPACESHIP ENGINEER</h2>
       <div class="input-group">
         <label>Callsign (Username)</label>
         <input type="text" id="username" placeholder="Red Five" required>
@@ -401,15 +402,18 @@ async function fetchLeaderboard() {
 
     if (error) throw error;
 
-    leaderboardList.innerHTML = data.map((entry, i) => `
+    leaderboardList.innerHTML = data.map((entry, i) => {
+      const dateStr = entry.data.created_at ? new Date(entry.data.created_at).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: '2-digit'}) : '';
+      return `
       <li class="leaderboard-item">
         <span class="rank">#${i + 1}</span>
         <span class="name">
           ${entry.data.linkedin_url ? `<a href="${entry.data.linkedin_url}" target="_blank" style="color: inherit; text-decoration: none; border-bottom: 1px dashed rgba(255,255,255,0.3);">${entry.data.username}</a>` : entry.data.username}
+          <span style="font-size: 11px; color: rgba(255,255,255,0.5); margin-left: 6px;">(${dateStr})</span>
         </span>
         <span class="l-score">${entry.data.score}</span>
       </li>
-    `).join('');
+    `}).join('');
   } catch (err) {
     console.error('Failed to fetch leaderboard:', err);
   }
@@ -880,8 +884,8 @@ function drawReadyScreen() {
   ctx.lineWidth = 4;
   ctx.font = 'bold 46px Courier New';
   ctx.textAlign = 'center';
-  ctx.strokeText('X-WING FLIGHT', CONFIG.width / 2, 150);
-  ctx.fillText('X-WING FLIGHT', CONFIG.width / 2, 150);
+  ctx.strokeText('SPACESHIP ENGINEER', CONFIG.width / 2, 150);
+  ctx.fillText('SPACESHIP ENGINEER', CONFIG.width / 2, 150);
 
   ctx.fillStyle = '#FFE066';
   ctx.font = 'bold 20px Courier New';
