@@ -1086,6 +1086,8 @@ function checkRockCollision() {
   const bh = xwing.height - 6;
 
   for (let rock of rocks) {
+    if (rock.destroyed) continue;
+
     const rx = rock.x;
     const rw = CONFIG.rockWidth;
     const topH = rock.topHeight;
