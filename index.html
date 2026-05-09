@@ -235,6 +235,9 @@ const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 
+const techmakersLogo = new Image();
+techmakersLogo.src = 'logo.png';
+
 // UI Elements
 const loginPanel = document.getElementById('login-panel');
 const leaderboardPanel = document.getElementById('leaderboard-panel');
@@ -879,13 +882,19 @@ function drawScore() {
 }
 
 function drawReadyScreen() {
+  if (techmakersLogo.complete && techmakersLogo.naturalWidth > 0) {
+    const logoWidth = 260;
+    const logoHeight = logoWidth * (techmakersLogo.naturalHeight / techmakersLogo.naturalWidth);
+    ctx.drawImage(techmakersLogo, CONFIG.width / 2 - logoWidth / 2, 60, logoWidth, logoHeight);
+  }
+
   ctx.fillStyle = '#FFFFFF';
   ctx.strokeStyle = '#ff3333';
   ctx.lineWidth = 4;
-  ctx.font = 'bold 46px Courier New';
+  ctx.font = 'bold 34px Courier New';
   ctx.textAlign = 'center';
-  ctx.strokeText('SPACESHIP ENGINEER', CONFIG.width / 2, 150);
-  ctx.fillText('SPACESHIP ENGINEER', CONFIG.width / 2, 150);
+  ctx.strokeText('SPACESHIP ENGINEER', CONFIG.width / 2, 170);
+  ctx.fillText('SPACESHIP ENGINEER', CONFIG.width / 2, 170);
 
   ctx.fillStyle = '#FFE066';
   ctx.font = 'bold 20px Courier New';
