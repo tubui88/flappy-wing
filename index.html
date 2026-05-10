@@ -1061,12 +1061,22 @@ function updateRocks(delta) {
 
   // Handle Wrecking Ball collision destruction
   if (xwing.activePower && xwing.activePower.type === 'wrecking_ball') {
+    const bx = xwing.x - xwing.width / 2 + 4;
+    const by = xwing.y - xwing.height / 2 + 3;
+    const bw = xwing.width - 8;
+    const bh = xwing.height - 6;
+
     rocks.forEach(r => {
-      if (!r.destroyed && r.x < xwing.x + xwing.width && r.x + CONFIG.rockWidth > xwing.x) {
-        r.destroyed = true;
-        score += 2; // 2 points per destruction
-        for (let p = 0; p < 20; p++) particles.push(createParticle(r.x + 30, r.topHeight, 'rock'));
-        for (let p = 0; p < 20; p++) particles.push(createParticle(r.x + 30, r.topHeight + CONFIG.rockGap, 'rock'));
+      if (!r.destroyed && bx + bw > r.x && bx < r.x + CONFIG.rockWidth) {
+        const topH = r.topHeight;
+        const bottomY = topH + CONFIG.rockGap;
+        // Only destroy if ship vertically hits the rock
+        if (by < topH || by + bh > bottomY) {
+          r.destroyed = true;
+          score += 2; // 2 points per destruction
+          for (let p = 0; p < 20; p++) particles.push(createParticle(r.x + 30, r.topHeight, 'rock'));
+          for (let p = 0; p < 20; p++) particles.push(createParticle(r.x + 30, r.topHeight + CONFIG.rockGap, 'rock'));
+        }
       }
     });
   }
@@ -1083,6 +1093,7 @@ function updateRocks(delta) {
       rock.scored = true;
       let earned = 1;
       if (xwing.activePower && xwing.activePower.type === 'transform') earned = 3;
+      if (xwing.activePower && xwing.activePower.type === 'retro_thrust') earned = 2;
       score += earned;
 
       for (let i = 0; i < 8; i++) {
