@@ -310,64 +310,12 @@ let frameCount = 0;
 let startTime = 0;
 let lastTime = 0;
 let spawnedRocksCount = 0;
-let superGearSchedule = [];
-let lasers = []; // For bombardment visuals
+
 let currentUser = JSON.parse(localStorage.getItem('xwingUser')) || null;
 let narrativeTimeout;
 
-function pickGearType(scoreTier) {
-  const r = Math.random() * 100;
-  if (scoreTier <= 20) {
-    if (r < 35) return 'shield_boost';
-    if (r < 70) return 'quantum_pocket';
-    if (r < 80) return 'brake';
-    if (r < 90) return 'bombardment';
-    return 'transform';
-  } else if (scoreTier <= 40) {
-    if (r < 30) return 'shield_boost';
-    if (r < 60) return 'quantum_pocket';
-    if (r < 90) return 'brake';
-    return 'bombardment';
-  } else if (scoreTier === 50) {
-    return 'transform';
-  } else if (scoreTier <= 70) {
-    if (r < 30) return 'shield_boost';
-    if (r < 40) return 'quantum_pocket';
-    if (r < 80) return 'brake';
-    if (r < 90) return 'bombardment';
-    return 'transform';
-  } else if (scoreTier <= 100) {
-    if (r < 20) return 'shield_boost';
-    if (r < 30) return 'quantum_pocket';
-    if (r < 50) return 'brake';
-    if (r < 80) return 'bombardment';
-    return 'transform';
-  } else {
-    if (r < 20) return 'shield_boost';
-    if (r < 40) return 'quantum_pocket';
-    if (r < 60) return 'brake';
-    if (r < 80) return 'bombardment';
-    return 'transform';
-  }
-}
 
-function generateGearSchedule() {
-  superGearSchedule = [];
-  const getRand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
-  
-  superGearSchedule.push({ score: getRand(1, 20), type: pickGearType(1) });
-  superGearSchedule.push({ score: getRand(21, 30), type: pickGearType(21) });
-  superGearSchedule.push({ score: getRand(31, 40), type: pickGearType(21) });
-  superGearSchedule.push({ score: 50, type: pickGearType(50) });
-  superGearSchedule.push({ score: getRand(61, 70), type: pickGearType(61) });
-  superGearSchedule.push({ score: getRand(71, 85), type: pickGearType(71) });
-  superGearSchedule.push({ score: getRand(86, 100), type: pickGearType(71) });
-  
-  for (let block = 101; block < 2000; block += 20) {
-    superGearSchedule.push({ score: getRand(block, block + 9), type: pickGearType(101) });
-    superGearSchedule.push({ score: getRand(block + 10, block + 19), type: pickGearType(101) });
-  }
-}
+
 
 function getDifficultyScale() {
   const levels = Math.floor(score / 10);
@@ -555,8 +503,7 @@ function init() {
   frameCount = 0;
   lastRockTime = 0;
   spawnedRocksCount = 0;
-  lasers = [];
-  generateGearSchedule();
+  
 
   if (!currentUser) {
     gameState = 'login';
@@ -1175,13 +1122,23 @@ function updateRocks(delta) {
     const topHeight = minTop + Math.random() * (maxTop - minTop);
 
     spawnedRocksCount++;
-    const scheduleItem = superGearSchedule.find(s => s.score === spawnedRocksCount);
+    let spawnGear = null;
+    
+    // Pick the target rock in this 10-rock block
+    if (spawnedRocksCount % 10 === 1 || !window.targetRockInBlock) {
+        window.targetRockInBlock = Math.floor((spawnedRocksCount - 1) / 10) * 10 + 1 + Math.floor(Math.random() * 10);
+    }
+    
+    if (spawnedRocksCount === window.targetRockInBlock) {
+       const allGears = ['shield_boost', 'quantum_pocket', 'retro_thrust', 'hyperdrive', 'wrecking_ball', 'transform'];
+       spawnGear = allGears[Math.floor(Math.random() * allGears.length)];
+    }
 
     rocks.push({
       x: CONFIG.width + 10,
       topHeight: topHeight,
       scored: false,
-      gearType: scheduleItem ? scheduleItem.type : null,
+      gearType: spawnGear,
       gearCollected: false
     });
     lastRockTime = now;
@@ -1300,7 +1257,6 @@ function gameLoop(timestamp) {
   }
 
   rocks.forEach(drawRock);
-  drawLasers();
   drawGround();
   drawParticles();
 
