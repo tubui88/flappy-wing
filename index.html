@@ -679,8 +679,9 @@ function drawSuperGear(x, y, type) {
   let colors = {
     'shield_boost': 'cyan',
     'quantum_pocket': 'magenta',
-    'brake': 'orange',
-    'bombardment': 'red',
+    'retro_thrust': 'orange',
+    'wrecking_ball': 'red',
+    'hyperdrive': 'lime',
     'transform': 'yellow'
   };
   let color = colors[type];
@@ -730,7 +731,7 @@ function drawSuperGear(x, y, type) {
     ctx.arc(0, 0, size * 0.2, 0, Math.PI * 2);
     ctx.fill();
 
-  } else if (type === 'brake') {
+  } else if (type === 'retro_thrust') {
     ctx.fillStyle = '#fff';
     ctx.beginPath();
     ctx.moveTo(size * 0.4, -size * 0.4);
@@ -745,24 +746,27 @@ function drawSuperGear(x, y, type) {
     ctx.closePath();
     ctx.fill();
 
-  } else if (type === 'bombardment') {
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 2;
+  } else if (type === 'wrecking_ball') {
+    ctx.fillStyle = '#ff5555';
     ctx.beginPath();
     ctx.arc(0, 0, size * 0.5, 0, Math.PI * 2);
-    ctx.stroke();
-    
-    ctx.beginPath();
-    ctx.moveTo(0, -size * 0.8); ctx.lineTo(0, -size * 0.2);
-    ctx.moveTo(0, size * 0.8); ctx.lineTo(0, size * 0.2);
-    ctx.moveTo(-size * 0.8, 0); ctx.lineTo(-size * 0.2, 0);
-    ctx.moveTo(size * 0.8, 0); ctx.lineTo(size * 0.2, 0);
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
     ctx.stroke();
 
+  } else if (type === 'hyperdrive') {
     ctx.fillStyle = '#fff';
     ctx.beginPath();
-    ctx.arc(0, 0, size * 0.15, 0, Math.PI * 2);
+    ctx.moveTo(-size * 0.5, -size * 0.5);
+    ctx.lineTo(size * 0.6, 0);
+    ctx.lineTo(-size * 0.5, size * 0.5);
+    ctx.closePath();
     ctx.fill();
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = 'lime';
+    ctx.stroke();
+    ctx.shadowBlur = 0;
 
   } else if (type === 'transform') {
     // Banana shape
@@ -828,20 +832,20 @@ function drawXWing() {
   if (xwing.activePower) {
     let glowColor = 'white';
     if (xwing.activePower.type === 'shield_boost') glowColor = 'cyan';
-    if (xwing.activePower.type === 'brake') glowColor = 'orange';
+    if (xwing.activePower.type === 'retro_thrust') glowColor = 'orange';
+    if (xwing.activePower.type === 'wrecking_ball') glowColor = 'red';
+    if (xwing.activePower.type === 'hyperdrive') glowColor = 'lime';
 
-    if (xwing.activePower.type !== 'bombardment') {
-      ctx.shadowBlur = 20;
-      ctx.shadowColor = glowColor;
-      ctx.beginPath();
-      ctx.strokeStyle = glowColor;
-      ctx.globalAlpha = 0.5;
-      ctx.lineWidth = 4;
-      ctx.arc(0, 0, 25, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.globalAlpha = 1.0;
-      ctx.shadowBlur = 0;
-    }
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = glowColor;
+    ctx.beginPath();
+    ctx.strokeStyle = glowColor;
+    ctx.globalAlpha = 0.5;
+    ctx.lineWidth = 4;
+    ctx.arc(0, 0, 25, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1.0;
+    ctx.shadowBlur = 0;
   }
 
   // Engine thrust particles
@@ -943,20 +947,6 @@ function drawParticles() {
   ctx.globalAlpha = 1;
 }
 
-function drawLasers() {
-  lasers.forEach(l => {
-    const alpha = l.life / 20;
-    ctx.strokeStyle = `rgba(255, 0, 0, ${alpha})`;
-    ctx.lineWidth = 10;
-    ctx.beginPath();
-    ctx.moveTo(l.x, 0);
-    ctx.lineTo(l.x, CONFIG.height);
-    ctx.stroke();
-    
-    ctx.fillStyle = `rgba(255, 100, 100, ${alpha * 0.8})`;
-    ctx.fillRect(l.x - 15, 0, 30, CONFIG.height);
-  });
-}
 
 function drawScore() {
   if (gameState === 'playing' || gameState === 'gameover') {
@@ -971,6 +961,17 @@ function drawScore() {
     ctx.font = 'bold 52px Courier New';
     ctx.strokeText(score, CONFIG.width / 2, 70);
     ctx.fillText(score, CONFIG.width / 2, 70);
+
+    if (xwing && xwing.activePower) {
+      const timeSec = Math.ceil(xwing.activePower.timer / 60);
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillRect(10, 10, 200, 30);
+      ctx.fillStyle = '#00ff00';
+      ctx.font = 'bold 16px Courier New';
+      ctx.textAlign = 'left';
+      let displayName = xwing.activePower.type.replace('_', ' ').toUpperCase();
+      ctx.fillText(`${displayName}: ${timeSec}s`, 15, 30);
+    }
   }
 }
 
@@ -1052,28 +1053,23 @@ function updateXWing(delta) {
 function updateRocks(delta) {
   let speedMult = 1;
   if (xwing.activePower && xwing.activePower.type === 'shield_boost') speedMult = 2;
-  if (xwing.activePower && xwing.activePower.type === 'brake') speedMult = 0.5;
+  if (xwing.activePower && xwing.activePower.type === 'retro_thrust') speedMult = 0.5;
+  if (xwing.activePower && xwing.activePower.type === 'hyperdrive') speedMult = 5;
 
   const currentSpeed = getRockSpeed() * speedMult;
   const currentInterval = getRockInterval() / speedMult;
 
-  // Handle bombardment
-  if (xwing.activePower && xwing.activePower.type === 'bombardment') {
+  // Handle Wrecking Ball collision destruction
+  if (xwing.activePower && xwing.activePower.type === 'wrecking_ball') {
     rocks.forEach(r => {
-      // Target rocks when they appear on screen, slightly ahead of the ship
-      if (!r.destroyed && r.x < xwing.x + 150) {
+      if (!r.destroyed && r.x < xwing.x + xwing.width && r.x + CONFIG.rockWidth > xwing.x) {
         r.destroyed = true;
-        // Destroy rock visually
+        score += 2; // 2 points per destruction
         for (let p = 0; p < 20; p++) particles.push(createParticle(r.x + 30, r.topHeight, 'rock'));
         for (let p = 0; p < 20; p++) particles.push(createParticle(r.x + 30, r.topHeight + CONFIG.rockGap, 'rock'));
-        lasers.push({ x: r.x + 30, life: 20 });
       }
     });
   }
-
-  // Update lasers
-  lasers.forEach(l => l.life -= delta);
-  lasers = lasers.filter(l => l.life > 0);
 
   rocks.forEach(rock => {
     rock.x -= currentSpeed * delta;
@@ -1104,10 +1100,20 @@ function updateRocks(delta) {
         rock.gearCollected = true;
         let powerType = rock.gearType;
         if (powerType === 'quantum_pocket') {
-          const others = ['shield_boost', 'brake', 'bombardment', 'transform'];
+          const others = ['shield_boost', 'retro_thrust', 'wrecking_ball', 'hyperdrive', 'transform'];
           powerType = others[Math.floor(Math.random() * others.length)];
         }
-        xwing.activePower = { type: powerType, timer: 300 }; // 5s @ 60fps
+        
+        let powerTimer = 300; // default 5s
+        if (powerType === 'retro_thrust') powerTimer = 600; // 10s
+        else if (powerType === 'hyperdrive') powerTimer = 60; // 1s
+        
+        if (powerType === 'hyperdrive') {
+          score += 10;
+          for(let i=0; i<30; i++) particles.push(createParticle(xwing.x, xwing.y, 'score'));
+        }
+        
+        xwing.activePower = { type: powerType, timer: powerTimer }; // Apply duration
         for(let i=0; i<20; i++) particles.push(createParticle(xwing.x, xwing.y, 'score'));
       }
     }
@@ -1195,7 +1201,7 @@ async function gameOver() {
 }
 
 function checkRockCollision() {
-  if (xwing.activePower && (xwing.activePower.type === 'shield_boost' || xwing.activePower.type === 'bombardment' || xwing.activePower.type === 'transform')) return false;
+  if (xwing.activePower && (xwing.activePower.type === 'shield_boost' || xwing.activePower.type === 'wrecking_ball' || xwing.activePower.type === 'hyperdrive' || xwing.activePower.type === 'transform')) return false;
 
   const bx = xwing.x - xwing.width / 2 + 4;
   const by = xwing.y - xwing.height / 2 + 3;
@@ -1236,7 +1242,8 @@ function gameLoop(timestamp) {
 
     let speedMult = 1;
     if (xwing.activePower && xwing.activePower.type === 'shield_boost') speedMult = 2;
-    if (xwing.activePower && xwing.activePower.type === 'brake') speedMult = 0.5;
+    if (xwing.activePower && xwing.activePower.type === 'retro_thrust') speedMult = 0.5;
+    if (xwing.activePower && xwing.activePower.type === 'hyperdrive') speedMult = 5;
 
     groundX = (groundX - getRockSpeed() * speedMult * delta) % CONFIG.width;
 
