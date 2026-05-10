@@ -964,13 +964,18 @@ function drawScore() {
 
     if (xwing && xwing.activePower) {
       const timeSec = Math.ceil(xwing.activePower.timer / 60);
-      ctx.fillStyle = 'rgba(0,0,0,0.6)';
-      ctx.fillRect(10, 10, 200, 30);
-      ctx.fillStyle = '#00ff00';
-      ctx.font = 'bold 16px Courier New';
-      ctx.textAlign = 'left';
       let displayName = xwing.activePower.type.replace('_', ' ').toUpperCase();
-      ctx.fillText(`${displayName}: ${timeSec}s`, 15, 30);
+      let text = `${displayName}: ${timeSec}s`;
+      
+      ctx.font = 'bold 12px Courier New';
+      let textWidth = ctx.measureText(text).width;
+      
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillRect(10, 10, textWidth + 10, 22);
+      
+      ctx.fillStyle = '#00ff00';
+      ctx.textAlign = 'left';
+      ctx.fillText(text, 15, 25);
     }
   }
 }
