@@ -35,8 +35,8 @@ serve(async (req) => {
         })
       }
 
-      const salt = await bcrypt.genSalt(10)
-      const password_hash = await bcrypt.hash(password, salt)
+      const salt = bcrypt.genSaltSync(10)
+      const password_hash = bcrypt.hashSync(password, salt)
 
       const { data, error } = await supabase
         .schema('flappy_xwing')
@@ -90,7 +90,7 @@ serve(async (req) => {
       }
 
       const user = userRes.data
-      const isValid = await bcrypt.compare(password, user.password_hash)
+      const isValid = bcrypt.compareSync(password, user.password_hash)
 
       if (!isValid) {
         return new Response(JSON.stringify({ error: 'Invalid password' }), {
