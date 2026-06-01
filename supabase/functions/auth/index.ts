@@ -4,12 +4,14 @@ import * as bcrypt from "https://deno.land/x/bcrypt@v0.4.1/mod.ts"
 import { create, getNumericDate, verify } from "https://deno.land/x/djwt@v3.0.1/mod.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3"
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
 serve(async (req) => {
+  const origin = req.headers.get('origin') || '*'
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Credentials': 'true',
+  }
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }

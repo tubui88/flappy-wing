@@ -369,11 +369,12 @@ async function registerUser() {
     const endpoint = isLoginMode ? 'login' : 'register';
     const payload = isLoginMode ? { email, password } : { email, password, username, linkedin_url: linkedin };
 
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/auth/${endpoint}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/auth/${endpoint}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(payload)
+        });
     
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Authentication failed');

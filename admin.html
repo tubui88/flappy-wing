@@ -250,7 +250,7 @@ let currentRange = 'all';
 
 async function checkSession() {
   try {
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/auth/me`);
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/auth/me`, { credentials: 'include' });
     const data = await res.json();
     if (res.ok && data.success && data.user.role === 'admin') {
       showDashboard();
@@ -274,6 +274,7 @@ async function login() {
     const res = await fetch(`${SUPABASE_URL}/functions/v1/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ email: emailInput, password: passwordInput })
     });
     const data = await res.json();
