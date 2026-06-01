@@ -218,15 +218,10 @@
         <input type="email" id="email" placeholder="luke@rebelalliance.org" required>
       </div>
       <div class="input-group">
-        <label>Password</label>
-        <input type="password" id="password" required>
-      </div>
-      <div class="input-group">
         <label>LinkedIn URL</label>
         <input type="url" id="linkedin" placeholder="https://linkedin.com/in/luke">
       </div>
       <button id="btn-register">JOIN THE SQUADRON</button>
-      <button id="btn-toggle-login" class="btn-secondary" style="margin-top:10px; width:100%; border-radius:8px; padding:10px; cursor:pointer; color:white;">ALREADY A PILOT? LOGIN</button>
       <div id="loading-spinner">Connecting to Rebel Base...</div>
     </div>
 
@@ -335,50 +330,31 @@ function getRockInterval() {
   return CONFIG.baseRockInterval / getDifficultyScale();
 }
 
-let isLoginMode = false;
-document.getElementById('btn-toggle-login').addEventListener('click', () => {
-  isLoginMode = !isLoginMode;
-  if(isLoginMode) {
-    document.getElementById('btn-register').innerText = 'ACCESS COMMAND CENTER';
-    document.getElementById('btn-toggle-login').innerText = 'NEW PILOT? JOIN SQUADRON';
-    document.getElementById('username').parentElement.style.display = 'none';
-    document.getElementById('linkedin').parentElement.style.display = 'none';
-  } else {
-    document.getElementById('btn-register').innerText = 'JOIN THE SQUADRON';
-    document.getElementById('btn-toggle-login').innerText = 'ALREADY A PILOT? LOGIN';
-    document.getElementById('username').parentElement.style.display = 'flex';
-    document.getElementById('linkedin').parentElement.style.display = 'flex';
-  }
-});
-
 // --- Supabase Functions ---
 async function registerUser() {
   const username = document.getElementById('username').value;
   const email = document.getElementById('email').value;
-  const password = document.getElementById('password').value;
   const linkedin = document.getElementById('linkedin').value;
 
-  if (!email || !password || (!isLoginMode && !username)) {
-    alert('Required fields are missing!');
+  if (!username || !email) {
+    alert('Username and Email are required!');
     return;
   }
 
   loadingSpinner.style.display = 'block';
   
   try {
-    const endpoint = isLoginMode ? 'login' : 'register';
-    const payload = isLoginMode ? { email, password } : { email, password, username, linkedin_url: linkedin };
-
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/auth/${endpoint}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+    // Call RPC to register or get user
+    const { data, error } = await _supabase.rpc('flappy_register_user', {
+      p_username: username,
+      p_email: email,
+      p_linkedin_url: linkedin
     });
-    
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Authentication failed');
 
-    currentUser = { id: data.user.id, username: data.user.username || username, email, linkedin_url: data.user.linkedin_url || linkedin };
+    if (error) throw error;
+    if (!data.success) throw new Error(data.error);
+
+    currentUser = { id: data.id, username, email, linkedin_url: linkedin };
     localStorage.setItem('xwingUser', JSON.stringify(currentUser));
     loginPanel.style.display = 'none';
     
@@ -703,9 +679,8 @@ function drawSuperGear(x, y, type) {
   let colors = {
     'shield_boost': 'cyan',
     'quantum_pocket': 'magenta',
-    'retro_thrust': 'orange',
-    'wrecking_ball': 'red',
-    'hyperdrive': 'lime',
+    'brake': 'orange',
+    'bombardment': 'red',
     'transform': 'yellow'
   };
   let color = colors[type];
@@ -755,7 +730,7 @@ function drawSuperGear(x, y, type) {
     ctx.arc(0, 0, size * 0.2, 0, Math.PI * 2);
     ctx.fill();
 
-  } else if (type === 'retro_thrust') {
+  } else if (type === 'brake') {
     ctx.fillStyle = '#fff';
     ctx.beginPath();
     ctx.moveTo(size * 0.4, -size * 0.4);
@@ -770,27 +745,24 @@ function drawSuperGear(x, y, type) {
     ctx.closePath();
     ctx.fill();
 
-  } else if (type === 'wrecking_ball') {
-    ctx.fillStyle = '#ff5555';
-    ctx.beginPath();
-    ctx.arc(0, 0, size * 0.5, 0, Math.PI * 2);
-    ctx.fill();
+  } else if (type === 'bombardment') {
     ctx.strokeStyle = '#fff';
     ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, size * 0.5, 0, Math.PI * 2);
+    ctx.stroke();
+    
+    ctx.beginPath();
+    ctx.moveTo(0, -size * 0.8); ctx.lineTo(0, -size * 0.2);
+    ctx.moveTo(0, size * 0.8); ctx.lineTo(0, size * 0.2);
+    ctx.moveTo(-size * 0.8, 0); ctx.lineTo(-size * 0.2, 0);
+    ctx.moveTo(size * 0.8, 0); ctx.lineTo(size * 0.2, 0);
     ctx.stroke();
 
-  } else if (type === 'hyperdrive') {
     ctx.fillStyle = '#fff';
     ctx.beginPath();
-    ctx.moveTo(-size * 0.5, -size * 0.5);
-    ctx.lineTo(size * 0.6, 0);
-    ctx.lineTo(-size * 0.5, size * 0.5);
-    ctx.closePath();
+    ctx.arc(0, 0, size * 0.15, 0, Math.PI * 2);
     ctx.fill();
-    ctx.shadowBlur = 10;
-    ctx.shadowColor = 'lime';
-    ctx.stroke();
-    ctx.shadowBlur = 0;
 
   } else if (type === 'transform') {
     // Banana shape
@@ -856,20 +828,20 @@ function drawXWing() {
   if (xwing.activePower) {
     let glowColor = 'white';
     if (xwing.activePower.type === 'shield_boost') glowColor = 'cyan';
-    if (xwing.activePower.type === 'retro_thrust') glowColor = 'orange';
-    if (xwing.activePower.type === 'wrecking_ball') glowColor = 'red';
-    if (xwing.activePower.type === 'hyperdrive') glowColor = 'lime';
+    if (xwing.activePower.type === 'brake') glowColor = 'orange';
 
-    ctx.shadowBlur = 20;
-    ctx.shadowColor = glowColor;
-    ctx.beginPath();
-    ctx.strokeStyle = glowColor;
-    ctx.globalAlpha = 0.5;
-    ctx.lineWidth = 4;
-    ctx.arc(0, 0, 25, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.globalAlpha = 1.0;
-    ctx.shadowBlur = 0;
+    if (xwing.activePower.type !== 'bombardment') {
+      ctx.shadowBlur = 20;
+      ctx.shadowColor = glowColor;
+      ctx.beginPath();
+      ctx.strokeStyle = glowColor;
+      ctx.globalAlpha = 0.5;
+      ctx.lineWidth = 4;
+      ctx.arc(0, 0, 25, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 1.0;
+      ctx.shadowBlur = 0;
+    }
   }
 
   // Engine thrust particles
@@ -971,6 +943,20 @@ function drawParticles() {
   ctx.globalAlpha = 1;
 }
 
+function drawLasers() {
+  lasers.forEach(l => {
+    const alpha = l.life / 20;
+    ctx.strokeStyle = `rgba(255, 0, 0, ${alpha})`;
+    ctx.lineWidth = 10;
+    ctx.beginPath();
+    ctx.moveTo(l.x, 0);
+    ctx.lineTo(l.x, CONFIG.height);
+    ctx.stroke();
+    
+    ctx.fillStyle = `rgba(255, 100, 100, ${alpha * 0.8})`;
+    ctx.fillRect(l.x - 15, 0, 30, CONFIG.height);
+  });
+}
 
 function drawScore() {
   if (gameState === 'playing' || gameState === 'gameover') {
@@ -985,22 +971,6 @@ function drawScore() {
     ctx.font = 'bold 52px Courier New';
     ctx.strokeText(score, CONFIG.width / 2, 70);
     ctx.fillText(score, CONFIG.width / 2, 70);
-
-    if (xwing && xwing.activePower) {
-      const timeSec = Math.ceil(xwing.activePower.timer / 60);
-      let displayName = xwing.activePower.type.replace('_', ' ').toUpperCase();
-      let text = `${displayName}: ${timeSec}s`;
-      
-      ctx.font = 'bold 12px Courier New';
-      let textWidth = ctx.measureText(text).width;
-      
-      ctx.fillStyle = 'rgba(0,0,0,0.6)';
-      ctx.fillRect(10, 10, textWidth + 10, 22);
-      
-      ctx.fillStyle = '#00ff00';
-      ctx.textAlign = 'left';
-      ctx.fillText(text, 15, 25);
-    }
   }
 }
 
@@ -1082,33 +1052,28 @@ function updateXWing(delta) {
 function updateRocks(delta) {
   let speedMult = 1;
   if (xwing.activePower && xwing.activePower.type === 'shield_boost') speedMult = 2;
-  if (xwing.activePower && xwing.activePower.type === 'retro_thrust') speedMult = 0.5;
-  if (xwing.activePower && xwing.activePower.type === 'hyperdrive') speedMult = 5;
+  if (xwing.activePower && xwing.activePower.type === 'brake') speedMult = 0.5;
 
   const currentSpeed = getRockSpeed() * speedMult;
   const currentInterval = getRockInterval() / speedMult;
 
-  // Handle Wrecking Ball collision destruction
-  if (xwing.activePower && xwing.activePower.type === 'wrecking_ball') {
-    const bx = xwing.x - xwing.width / 2 + 4;
-    const by = xwing.y - xwing.height / 2 + 3;
-    const bw = xwing.width - 8;
-    const bh = xwing.height - 6;
-
+  // Handle bombardment
+  if (xwing.activePower && xwing.activePower.type === 'bombardment') {
     rocks.forEach(r => {
-      if (!r.destroyed && bx + bw > r.x && bx < r.x + CONFIG.rockWidth) {
-        const topH = r.topHeight;
-        const bottomY = topH + CONFIG.rockGap;
-        // Only destroy if ship vertically hits the rock
-        if (by < topH || by + bh > bottomY) {
-          r.destroyed = true;
-          score += 2; // 2 points per destruction
-          for (let p = 0; p < 20; p++) particles.push(createParticle(r.x + 30, r.topHeight, 'rock'));
-          for (let p = 0; p < 20; p++) particles.push(createParticle(r.x + 30, r.topHeight + CONFIG.rockGap, 'rock'));
-        }
+      // Target rocks when they appear on screen, slightly ahead of the ship
+      if (!r.destroyed && r.x < xwing.x + 150) {
+        r.destroyed = true;
+        // Destroy rock visually
+        for (let p = 0; p < 20; p++) particles.push(createParticle(r.x + 30, r.topHeight, 'rock'));
+        for (let p = 0; p < 20; p++) particles.push(createParticle(r.x + 30, r.topHeight + CONFIG.rockGap, 'rock'));
+        lasers.push({ x: r.x + 30, life: 20 });
       }
     });
   }
+
+  // Update lasers
+  lasers.forEach(l => l.life -= delta);
+  lasers = lasers.filter(l => l.life > 0);
 
   rocks.forEach(rock => {
     rock.x -= currentSpeed * delta;
@@ -1122,7 +1087,6 @@ function updateRocks(delta) {
       rock.scored = true;
       let earned = 1;
       if (xwing.activePower && xwing.activePower.type === 'transform') earned = 3;
-      if (xwing.activePower && xwing.activePower.type === 'retro_thrust') earned = 2;
       score += earned;
 
       for (let i = 0; i < 8; i++) {
@@ -1140,20 +1104,10 @@ function updateRocks(delta) {
         rock.gearCollected = true;
         let powerType = rock.gearType;
         if (powerType === 'quantum_pocket') {
-          const others = ['shield_boost', 'retro_thrust', 'wrecking_ball', 'hyperdrive', 'transform'];
+          const others = ['shield_boost', 'brake', 'bombardment', 'transform'];
           powerType = others[Math.floor(Math.random() * others.length)];
         }
-        
-        let powerTimer = 300; // default 5s
-        if (powerType === 'retro_thrust') powerTimer = 600; // 10s
-        else if (powerType === 'hyperdrive') powerTimer = 60; // 1s
-        
-        if (powerType === 'hyperdrive') {
-          score += 10;
-          for(let i=0; i<30; i++) particles.push(createParticle(xwing.x, xwing.y, 'score'));
-        }
-        
-        xwing.activePower = { type: powerType, timer: powerTimer }; // Apply duration
+        xwing.activePower = { type: powerType, timer: 300 }; // 5s @ 60fps
         for(let i=0; i<20; i++) particles.push(createParticle(xwing.x, xwing.y, 'score'));
       }
     }
@@ -1241,7 +1195,7 @@ async function gameOver() {
 }
 
 function checkRockCollision() {
-  if (xwing.activePower && (xwing.activePower.type === 'shield_boost' || xwing.activePower.type === 'wrecking_ball' || xwing.activePower.type === 'hyperdrive' || xwing.activePower.type === 'transform')) return false;
+  if (xwing.activePower && (xwing.activePower.type === 'shield_boost' || xwing.activePower.type === 'bombardment' || xwing.activePower.type === 'transform')) return false;
 
   const bx = xwing.x - xwing.width / 2 + 4;
   const by = xwing.y - xwing.height / 2 + 3;
@@ -1282,8 +1236,7 @@ function gameLoop(timestamp) {
 
     let speedMult = 1;
     if (xwing.activePower && xwing.activePower.type === 'shield_boost') speedMult = 2;
-    if (xwing.activePower && xwing.activePower.type === 'retro_thrust') speedMult = 0.5;
-    if (xwing.activePower && xwing.activePower.type === 'hyperdrive') speedMult = 5;
+    if (xwing.activePower && xwing.activePower.type === 'brake') speedMult = 0.5;
 
     groundX = (groundX - getRockSpeed() * speedMult * delta) % CONFIG.width;
 
