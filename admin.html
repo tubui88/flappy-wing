@@ -249,15 +249,14 @@ const pilotTableBody = document.getElementById('pilot-table-body');
 let currentRange = 'all';
 
 async function checkSession() {
-  const { data: { session } } = await _supabase.auth.getSession();
-  if (session) {
-    // Also check if email is in flappy_xwing.admins
-    const { data: admin } = await _supabase.rpc('execute_sql', { 
-      query: `SELECT 1 FROM flappy_xwing.admins WHERE email = '${session.user.email}'`
-    }).catch(() => ({ data: null }));
-    
-    // Simplification: just check session for now, the RPC check would be better but execute_sql might not be exposed to anon
-    showDashboard();
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/auth/me`);
+    const data = await res.json();
+    if (res.ok && data.success && data.user.role === 'admin') {
+      showDashboard();
+    }
+  } catch (err) {
+    console.error('Session check failed', err);
   }
 }
 
@@ -271,16 +270,26 @@ async function login() {
     return;
   }
 
-  const { data, error } = await _supabase.auth.signInWithPassword({
-    email: emailInput,
-    password: passwordInput
-  });
-
-  if (error) {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: emailInput, password: passwordInput })
+    });
+    const data = await res.json();
+    
+    if (!res.ok) {
+      errorMsg.style.display = 'block';
+      errorMsg.innerText = data.error || 'Login failed';
+    } else if (!data.user.isAdmin) {
+      errorMsg.style.display = 'block';
+      errorMsg.innerText = 'Access Denied: Not an Admin';
+    } else {
+      showDashboard();
+    }
+  } catch (err) {
     errorMsg.style.display = 'block';
-    errorMsg.innerText = error.message;
-  } else {
-    showDashboard();
+    errorMsg.innerText = 'Connection error';
   }
 }
 
@@ -329,7 +338,7 @@ async function loadStats() {
 
 btnLogin.addEventListener('click', login);
 btnLogout.addEventListener('click', async () => {
-  await _supabase.auth.signOut();
+  await fetch(`${SUPABASE_URL}/functions/v1/auth/logout`);
   window.location.reload();
 });
 
