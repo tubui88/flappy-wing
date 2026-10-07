@@ -4,7 +4,7 @@ name: Build and deploy
 
 on:
   push:
-    branches: [main]
+    branches: [main, depot-pilot]   # TEMP: depot-pilot removed before merge
   workflow_dispatch:
 
 concurrency:
