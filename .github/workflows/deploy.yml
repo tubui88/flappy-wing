@@ -1,0 +1,49 @@
+# Build on Depot -> push to GHCR -> tell Coolify to pull and run.
+# To leave Depot: edit the 3 lines marked "# DEPOT".
+name: Build and deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE: ghcr.io/tubui88/flappy-wing
+
+jobs:
+  deploy:
+    # Personal-account repo: Depot runners only support GitHub orgs, so this small job
+    # runs on GitHub's free runner. The heavy Docker build still runs on Depot.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: depot/setup-action@v1             # DEPOT: delete this step
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: depot/build-push-action@v1        # DEPOT: change to docker/build-push-action@v6
+        with:
+          project: ${{ vars.DEPOT_PROJECT_ID }}  # DEPOT: delete this line
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ github.sha }}
+
+      - name: Deploy on Coolify
+        run: |
+          curl --fail --silent --show-error -X POST "${{ secrets.COOLIFY_WEBHOOK }}" \
+            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}"
